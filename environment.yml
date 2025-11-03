@@ -1,12 +1,13 @@
 name: env_esi_cimmyt
 channels:
-  - conda-forge
   - defaults
 dependencies:
+  - pandas
   - pip
   - python=3.13
-  - numpy
-  - pandas
-  - pyjanitor
-  - openpyxl
   - pyarrow
+  - pyjanitor
+  - numpy
+  - openpyxl
+  - ipykernel
+  - matplotlib
