@@ -5,7 +5,7 @@ Date: 2025-11-03
 Description:
     This script applies a series of preprocessing steps to the CIMMYT datasets on irrigation and farm economics.
     The main operations are:
-        - Cleaning column names,adjusting data types, selecting variables
+        - Cleaning column names, adjusting data types, selecting variables
         - Concatenation / aggregation of water features
         - Extraction of irrigation cost
         - Merging
@@ -28,15 +28,15 @@ import pandas as pd
 # -----------------------------------------------------------------------------
 # File paths and sheet names
 # Get home directory (useful if you are working on different machines)
-HOME = Path.home()
+PATH_HOME = Path.home()
 
 # Define where the project is located
-PROJECT_DIRECTORY = r"OneDrive - Kungl. Vetenskapsakademien\esi_cimmyt"
+PATH_PROJECT_DIRECTORY = r"OneDrive - Kungl. Vetenskapsakademien\esi_cimmyt"
 
 # Path to CIMMYT irrigation dataset (Mexico)
 PATH_CIMMYT_MEXICO_WATER = (
-    HOME
-    / PROJECT_DIRECTORY
+    PATH_HOME
+    / PATH_PROJECT_DIRECTORY
     / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\5.-Irrigacion_2012-2022_01.xlsx"
 )
 
@@ -44,28 +44,30 @@ SHEET_CIMMYT_MEXICO_WATER = "Data"
 
 # Path to water tariffs
 PATH_WATER_TARIFFS = (
-    HOME / PROJECT_DIRECTORY / r"data\raw\water\water_tariffs_conagua.xlsx"
+    PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\raw\water\water_tariffs_conagua.xlsx"
 )
 
 # Path to agronomic features table
 PATH_AGRONOMIC_FEATURES = (
-    HOME / PROJECT_DIRECTORY / r"data\processed\tables\agronomic_features.feather"
+    PATH_HOME
+    / PATH_PROJECT_DIRECTORY
+    / r"data\processed\tables\agronomic_features.feather"
 )
 
 # Path to CIMMYT cost-revenue dataset (Mexico)
 PATH_CIMMYT_MEXICO_ECONOMICS = (
-    HOME
-    / PROJECT_DIRECTORY
+    PATH_HOME
+    / PATH_PROJECT_DIRECTORY
     / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\6.-Costs and revenues_2012-2022_01.xlsx"
 )
 
 SHEET_CIMMYT_MEXICO_ECONOMICS = "Data"
 
-# Export path for tables
-PATH_EXPORT_TABLES = HOME / PROJECT_DIRECTORY / r"data\processed\tables"
+# Export path for processed tables
+PATH_EXPORT_TABLES = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\tables"
 
 # SQL DB connection
-PATH_SQL_DB = HOME / PROJECT_DIRECTORY / r"data\processed\sql_db\cimmyt.db"
+PATH_SQL_DB = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\sql_db\cimmyt.db"
 
 # ID columns
 ID_KEYS_WATER = ["farmer_id", "plot_id", "logbook_id", "practice_id", "id_irrigation"]
@@ -321,7 +323,8 @@ water_df_final = water_df_totals.copy()
 water_df_final.to_feather(PATH_EXPORT_TABLES / r"water_features.feather")
 
 # Write to SQL database
-cimmyt_db = sqlite3.connect(PATH_SQL_DB)
-water_df_final.to_sql(
-    name="water_features", con=cimmyt_db, if_exists="replace", index=False
-)
+con = sqlite3.connect(PATH_SQL_DB)
+water_df_final.to_sql(name="water_features", con=con, if_exists="replace", index=False)
+
+# END
+exit("Execution complete.")
