@@ -11,3 +11,6 @@ dependencies:
   - openpyxl
   - ipykernel
   - matplotlib
+  - geopandas
+  - rasterio
+  - fiona
