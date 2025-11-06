@@ -67,6 +67,8 @@ CF_BALE_TON = 0.2177243376
 # Conversion factor from kilograms to metric tons
 CF_KG_TON = 0.001
 
+SUPPORTED_UNITS = ["TON", "BALE", "KG"]
+
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
@@ -113,6 +115,9 @@ agronomic_df_vars = agronomic_df_vars[
 
 # Conversions from bales and kgs to metric tons of yield per hectare
 agronomic_df_units = agronomic_df_vars.copy()
+
+supported_units = agronomic_df_units["unit_of_measure_ha"].isin(SUPPORTED_UNITS)
+
 agronomic_df_units["yield_t_ha"] = np.select(
     [
         (agronomic_df_units["unit_of_measure_ha"] == "TON"),
@@ -132,39 +137,59 @@ agronomic_df_units.drop(
     columns=["actual_yield_unit_ha", "unit_of_measure_ha"], inplace=True
 )
 
-# Group and aggregate variables selectively
-agronomic_df_agg = agronomic_df_units.copy()
+# Define masks
+maize_grain_mask = (agronomic_df_units["crop"] == "MAIZE") & (
+    agronomic_df_units["product_obtained"] == "GRAIN"
+)
+maize_forage_mask = (agronomic_df_units["crop"] == "MAIZE") & (
+    agronomic_df_units["product_obtained"] == "FORAGE"
+)
+
+# Compute yield fields for masks
+agronomic_df_units["maize_grain_yield_t_ha"] = agronomic_df_units["yield_t_ha"].where(
+    maize_grain_mask
+)
+agronomic_df_units["maize_forage_yield_t_ha"] = agronomic_df_units["yield_t_ha"].where(
+    maize_forage_mask
+)
+
+# Supported-unit flags for masks
+agronomic_df_units["grain_unit_supported"] = supported_units & maize_grain_mask
+agronomic_df_units["forage_unit_supported"] = supported_units & maize_forage_mask
 
 # Group and aggregate variables selectively
-agronomic_df_agg = agronomic_df_units.copy()
+group_cols = ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
+
+
+def join_unique(x):
+    return ", ".join(sorted(x.dropna().unique()))
+
+
+def sum_min_count(x):
+    return x.sum(min_count=1)
+
+
+def unit_support_status(x):
+    if not x.any():
+        return "NOT APPLICABLE"
+    elif x.all():
+        return "SUPPORTED"
+    else:
+        return "UNSUPPORTED"
+
 
 agronomic_df_agg = (
-    agronomic_df_agg.groupby(
-        ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
-    )
+    agronomic_df_units.groupby(group_cols, sort=False)
     .agg(
         area_ha=("area_ha", "mean"),
-        crops=("crop", lambda x: ", ".join(sorted(x.dropna().astype(str).unique()))),
+        crops=("crop", join_unique),
         crop_count=("crop", "nunique"),
-        products=(
-            "product_obtained",
-            lambda x: ", ".join(sorted(x.dropna().astype(str).unique())),
-        ),
+        products=("product_obtained", join_unique),
         product_count=("product_obtained", "nunique"),
-        maize_grain_yield_t_ha=(
-            "yield_t_ha",
-            lambda y: y[
-                (agronomic_df_agg.loc[y.index, "crop"] == "MAIZE")
-                & (agronomic_df_agg.loc[y.index, "product_obtained"] == "GRAIN")
-            ].sum(min_count=1),
-        ),
-        maize_forage_yield_t_ha=(
-            "yield_t_ha",
-            lambda y: y[
-                (agronomic_df_agg.loc[y.index, "crop"] == "MAIZE")
-                & (agronomic_df_agg.loc[y.index, "product_obtained"] == "FORAGE")
-            ].sum(min_count=1),
-        ),
+        maize_grain_yield_t_ha=("maize_grain_yield_t_ha", sum_min_count),
+        maize_forage_yield_t_ha=("maize_forage_yield_t_ha", sum_min_count),
+        unit_support_status_grain=("grain_unit_supported", unit_support_status),
+        unit_support_status_forage=("forage_unit_supported", unit_support_status),
     )
     .reset_index()
 )
