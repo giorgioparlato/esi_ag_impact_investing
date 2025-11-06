@@ -25,13 +25,13 @@ import pandas as pd
 # Home directory
 PATH_HOME = Path.home()
 
-# Project directory
-PATH_PROJECT_DIRECTORY = r"OneDrive - Kungl. Vetenskapsakademien\esi_cimmyt"
+# Define where the data is located
+PATH_DATA = r"esi_cimmyt"
 
 # CIMMYT dataset storing agronomic features
 PATH_CIMMYT_MEXICO_AGRONOMIC_FEATURES = (
     PATH_HOME
-    / PATH_PROJECT_DIRECTORY
+    / PATH_DATA
     / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\2.-Sowing_harvest_yields_2012-2022_01.xlsx"
 )
 
@@ -39,10 +39,10 @@ PATH_CIMMYT_MEXICO_AGRONOMIC_FEATURES = (
 SHEET_CIMMYT_MEXICO_AGRONOMIC_FEATURES = "Data"
 
 # Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\tables"
+PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 
 # SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\sql_db\cimmyt.db"
+PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # ID columns
 ID_COLUMNS = ["farmer_id", "plot_id", "logbook_id", "practice_id"]

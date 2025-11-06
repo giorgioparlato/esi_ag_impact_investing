@@ -27,43 +27,39 @@ from shapely.geometry import Point
 # Get home directory (useful if you are working on different machines)
 PATH_HOME = Path.home()
 
-# Define where the project is located
-PATH_PROJECT_DIRECTORY = r"OneDrive - Kungl. Vetenskapsakademien\esi_cimmyt"
+# Define where the data is located
+PATH_DATA = r"esi_cimmyt"
 
 # Path to geospatial layer for continents
 # Source: https://data.niaid.nih.gov/resources?id=zenodo_10778078
 PATH_CONTINENTS = (
     PATH_HOME
-    / PATH_PROJECT_DIRECTORY
+    / PATH_DATA
     / r"data\raw\geospatial\vector\world_geographic_regions\World_Geographic_Regionst.shp"
 )
 
 # Path to vegetation types raster
 PATH_VEGETATION_TYPES = (
     PATH_HOME
-    / PATH_PROJECT_DIRECTORY
+    / PATH_DATA
     / r"data\raw\geospatial\raster\vegetation_types\NLu_2022-Oct-14.asc"
 )
 
 # Path to ESI coefficients
 PATH_ESI_COEFFICIENTS = (
-    PATH_HOME
-    / PATH_PROJECT_DIRECTORY
-    / r"data\raw\esi_coefficients\esi_coefficients_updated.xlsx"
+    PATH_HOME / PATH_DATA / r"data\raw\esi_coefficients\esi_coefficients_updated.xlsx"
 )
 
 # Path to reference table
 PATH_REF_TABLE = (
-    PATH_HOME
-    / PATH_PROJECT_DIRECTORY
-    / r"data\processed\tables\reference_table.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\reference_table.feather"
 )
 
 # Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\tables"
+PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 
 # SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\sql_db\cimmyt.db"
+PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Import data

@@ -32,23 +32,23 @@ import pandas as pd
 # Get home directory (useful if you are working on different machines)
 PATH_HOME = Path.home()
 
-# Define where the project is located
-PATH_PROJECT_DIRECTORY = r"OneDrive - Kungl. Vetenskapsakademien\esi_cimmyt"
+# Define where the data is located
+PATH_DATA = r"esi_cimmyt"
 
 # Path to CIMMYT logbook dataset (Mexico)
 PATH_CIMMYT_MEXICO_LOGBOOK = (
     PATH_HOME
-    / PATH_PROJECT_DIRECTORY
+    / PATH_DATA
     / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\1.-Farmer_Plot_Logbook_2012-2022_02.xlsx"
 )
 
 SHEET_CIMMYT_MEXICO_LOGBOOK = "Data"
 
 # Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\tables"
+PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 
 # SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_PROJECT_DIRECTORY / r"data\processed\sql_db\cimmyt.db"
+PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # Define the id columns
 ID_COLUMNS = [
