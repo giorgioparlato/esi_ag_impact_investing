@@ -72,7 +72,25 @@ KEY_COLUMNS = [
 ]
 
 # Define other variables of interest
-OTHER_VARS = ["plot_type"]
+OTHER_VARS = [
+    "plot_type",
+    "property_type",
+    "land_ownership",
+    "state",
+    "municipality",
+    "agroecological_hub",
+    "technification_level",
+    "winter_summer_season",
+    "conservation_agriculture",
+    "fertilization",
+    "planting_arrangements",
+    "water_conservation",
+    "integrated_pest_management",
+    "improved_varieties",
+    "soil_conservation",
+    "commercialization",
+    "postharvest",
+]
 
 # -----------------------------------------------------------------------------
 # Import data
@@ -95,6 +113,10 @@ logbook_df_clean_columns = logbook_df_raw.clean_names(
     strip_accents=True,
     preserve_original_labels=True,
     enforce_string=True,
+)
+
+logbook_df_clean_columns.rename(
+    columns={"planting_arregements": "planting_arrangements"}, inplace=True
 )
 
 # Convert mixed columns to string type to prevent downstream issues
@@ -152,8 +174,8 @@ logbook_df_melted = pd.melt(
         "year",
         "latitude_n",
         "longitude_w",
-        "plot_type",
-    ],
+    ]
+    + OTHER_VARS,
     value_vars=["innovation_practices_id", "conventional_practices_id"],
     value_name="practice_id",
 )
@@ -184,9 +206,9 @@ logbook_df_final = logbook_df_melted.reindex(
         "longitude_w",
         "latitude_n",
         "year",
-        "plot_type",
         "practices_type",
-    ],
+    ]
+    + OTHER_VARS,
     copy=True,
 )
 
