@@ -42,12 +42,14 @@ PATH_CONTINENTS = (
 PATH_VEGETATION_TYPES = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\geospatial\raster\vegetation_types\NLu_2022-Oct-14.asc"
+    / r"data\raw\geospatial\raster\vegetation_types\vegmap.NoLU.late.asc"
 )
 
 # Path to ESI coefficients
 PATH_ESI_COEFFICIENTS = (
-    PATH_HOME / PATH_DATA / r"data\raw\esi_coefficients\esi_coefficients_updated.xlsx"
+    PATH_HOME
+    / PATH_DATA
+    / r"data\raw\esi_coefficients\esi_coefficients_table_updated_20251212.xlsx"
 )
 
 # Path to reference table
@@ -137,13 +139,13 @@ ref_gdf_vtypes["raster_value"] = ref_gdf_vtypes["geometry"].apply(
 
 # Mapping raster values to vegetation types, based on the metric input tab in the ESI Excel
 raster_value_vtype_label_map = {
-    1: "agriculture",  # Not available yet in the current version
-    2: "tropical forest",
-    3: "temperate forest",
-    4: "boreal forest",
-    5: "cool climate grassland",
-    6: "warm climate grassland",
-    7: "barren land",
+    1: "boreal forest",
+    2: "cool climate grassland",
+    3: "warm climate grassland",
+    4: "temperate forest",
+    5: "tropical forest",
+    6: "barren land",
+    7: "others",
 }
 
 ref_gdf_vtypes["veg_type"] = ref_gdf_vtypes["raster_value"].map(
