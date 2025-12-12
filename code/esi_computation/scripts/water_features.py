@@ -93,6 +93,9 @@ WATER_MANAGEMENT_VARS = [
 
 WATER_CONSUMPTION_VARS = ["total_water_consumption_per_irrigation_lt"]
 
+EF_IRR_APP = 0.000148952
+EF_IRR_EQUIP = 1.61319e-05
+
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
@@ -372,11 +375,65 @@ water_df_totals["water_cons_hyb_adj_dam3"] = (
     water_df_totals.water_cons_hyb_adj_m3 * 10**-3
 )
 
+# Emissions based on non-adjusted hybrid water consumption estimates, per hectare basis
+water_df_emissions = water_df_totals.copy()
+
+water_df_emissions["irr_app_tco2eq_ha"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_m3_ha"] * EF_IRR_APP,
+    np.nan,
+)
+
+water_df_emissions["irr_equip_tco2eq_ha"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_m3_ha"] * EF_IRR_EQUIP,
+    np.nan,
+)
+
+# Emissions based on adjusted hybrid water consumption estimates
+water_df_emissions["irr_app_adj_tco2eq_ha"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_adj_m3_ha"] * EF_IRR_APP,
+    np.nan,
+)
+
+water_df_emissions["irr_equip_adj_tco2eq_ha"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_adj_m3_ha"] * EF_IRR_EQUIP,
+    np.nan,
+)
+
+# Emissions based on non-adjusted hybrid water consumption estimates, total
+water_df_emissions["irr_app_tco2eq"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_m3"] * EF_IRR_APP,
+    np.nan,
+)
+
+water_df_emissions["irr_equip_tco2eq"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_m3"] * EF_IRR_EQUIP,
+    np.nan,
+)
+
+# Emissions based on adjusted hybrid water consumption estimates, total
+water_df_emissions["irr_app_adj_tco2eq"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_adj_m3"] * EF_IRR_APP,
+    np.nan,
+)
+
+water_df_emissions["irr_equip_adj_tco2eq"] = np.where(
+    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
+    water_df_emissions["water_cons_hyb_adj_m3"] * EF_IRR_EQUIP,
+    np.nan,
+)
+
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-water_df_final = water_df_totals.copy()
+water_df_final = water_df_emissions.copy()
 water_df_final.to_feather(PATH_EXPORT_TABLES / r"water_features.feather")
 
 # Write to SQL database
