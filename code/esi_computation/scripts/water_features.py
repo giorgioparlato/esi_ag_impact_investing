@@ -67,10 +67,11 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
-# ID columns
+# Other constants
+# ID columns in the irrigation dataset
 ID_KEYS_WATER = ["farmer_id", "plot_id", "logbook_id", "practice_id", "id_irrigation"]
 
-# ID columns in cost-revenue dataset
+# ID columns in costs and revenues dataset
 ID_KEYS_ECONOMICS = [
     "farmer_id",
     "plot_id",
@@ -82,7 +83,7 @@ ID_KEYS_ECONOMICS = [
 # Year column
 YEAR_COL = ["year"]
 
-# Other variables
+# Other key variables
 WATER_MANAGEMENT_VARS = [
     "water_source",
     "hydric_regime",
@@ -95,9 +96,14 @@ WATER_CONSUMPTION_VARS = ["total_water_consumption_per_irrigation_lt"]
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
-# Load Mexico dataset on irrigation
+# Load dataset on irrigation
 water_df_raw = pd.read_excel(
     io=PATH_CIMMYT_MEXICO_WATER, sheet_name=SHEET_CIMMYT_MEXICO_WATER
+)
+
+# Load dataset on costs and revenues
+economics_df_raw = pd.read_excel(
+    io=PATH_CIMMYT_MEXICO_ECONOMICS, sheet_name=SHEET_CIMMYT_MEXICO_ECONOMICS, header=1
 )
 
 # Load water tariffs from CONAGUA
@@ -108,11 +114,6 @@ water_tariffs_df = pd.read_excel(
 # Load plot areas
 areas_df = pd.read_feather(
     PATH_AGRONOMIC_FEATURES, columns=["practice_id", "year", "area_ha"]
-)
-
-# Load cost-revenue data
-economics_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_ECONOMICS, sheet_name=SHEET_CIMMYT_MEXICO_ECONOMICS, header=1
 )
 
 # -----------------------------------------------------------------------------
@@ -161,8 +162,21 @@ water_df_vars = water_df_vars[
     ID_KEYS_WATER + YEAR_COL + WATER_MANAGEMENT_VARS + WATER_CONSUMPTION_VARS
 ]
 
+# Assign project irrigation efficiency parameters based on irrigation type
+water_df_efficiency = water_df_vars.copy()
+
+efficiency_parameters_map = {
+    "SURFACE IRRIGATION": 0.420,
+    "SPRINKLER IRRIGATION": 0.713,
+    "DRIP IRRIGATION": 0.855,
+}
+
+water_df_efficiency["irr_efficiency_param"] = water_df_efficiency[
+    "irrigation_type"
+].map(efficiency_parameters_map)
+
 # Concatenate water sources and irrigation types, aggregate water consumption data
-water_df_agg = water_df_vars.copy()
+water_df_agg = water_df_efficiency.copy()
 water_df_agg = (
     water_df_agg.groupby(["farmer_id", "plot_id", "logbook_id", "practice_id", "year"])
     .agg(
@@ -192,6 +206,7 @@ water_df_agg = (
             ),
         ),
         irrigation_types_count=("irrigation_type", "nunique"),
+        irr_efficiency_param=("irr_efficiency_param", "mean"),
         total_water_consumption_per_irrigation_lt=(
             "total_water_consumption_per_irrigation_lt",
             lambda x: (x.sum(min_count=1) if x.notna().all() else np.nan),
@@ -260,6 +275,16 @@ water_df_metrics["water_cons_rep_m3_ha"] = np.where(
     np.nan,
 )
 
+# Compute reported water consumption in cubic meters per hectare, adjusted for irrigation efficiency
+water_df_metrics["water_cons_rep_adj_m3_ha"] = np.where(
+    water_df_metrics["total_water_consumption_per_irrigation_lt"].notna()
+    & water_df_metrics["irr_efficiency_param"].notna(),
+    water_df_metrics["total_water_consumption_per_irrigation_lt"]
+    * 10**-3
+    * water_df_metrics["irr_efficiency_param"],
+    water_df_metrics["total_water_consumption_per_irrigation_lt"] * 10**-3,
+)
+
 # Compute water consumption estimates in cubic meters per hectare
 water_df_metrics["water_cons_est_m3_ha"] = np.where(
     water_df_metrics["irrigation_cost_mxn_ha"].notna()
@@ -268,12 +293,31 @@ water_df_metrics["water_cons_est_m3_ha"] = np.where(
     np.nan,
 )
 
+# Compute water consumption estimates in cubic meters per hectare, adjusted for irrigation efficiency
+water_df_metrics["water_cons_est_adj_m3_ha"] = np.where(
+    water_df_metrics["irrigation_cost_mxn_ha"].notna()
+    & water_df_metrics["mxn_m3"].notna()
+    & water_df_metrics["irr_efficiency_param"].notna(),
+    water_df_metrics["irrigation_cost_mxn_ha"]
+    / water_df_metrics["mxn_m3"]
+    * water_df_metrics["irr_efficiency_param"],
+    water_df_metrics["irrigation_cost_mxn_ha"] / water_df_metrics["mxn_m3"],
+)
+
 # Create a new column to store both reported and estimated values
 water_df_metrics["water_cons_hyb_m3_ha"] = water_df_metrics[
     "water_cons_rep_m3_ha"
 ].where(
     water_df_metrics["water_cons_rep_m3_ha"] > 0.0,
     water_df_metrics["water_cons_est_m3_ha"],
+)
+
+# Create a new column to store both reported and estimated values, adjusted for irrigation efficiency
+water_df_metrics["water_cons_hyb_adj_m3_ha"] = water_df_metrics[
+    "water_cons_rep_adj_m3_ha"
+].where(
+    water_df_metrics["water_cons_rep_adj_m3_ha"] > 0.0,
+    water_df_metrics["water_cons_est_adj_m3_ha"],
 )
 
 # Add a column to flag whether the value is reported or estimated
@@ -302,16 +346,31 @@ water_df_totals["water_cons_rep_m3"] = (
     water_df_totals.water_cons_rep_m3_ha * water_df_totals.area_ha
 )
 
+water_df_totals["water_cons_rep_adj_m3"] = (
+    water_df_totals.water_cons_rep_adj_m3_ha * water_df_totals.area_ha
+)
+
 water_df_totals["water_cons_est_m3"] = (
     water_df_totals.water_cons_est_m3_ha * water_df_totals.area_ha
+)
+
+water_df_totals["water_cons_est_adj_m3"] = (
+    water_df_totals.water_cons_est_adj_m3_ha * water_df_totals.area_ha
 )
 
 water_df_totals["water_cons_hyb_m3"] = (
     water_df_totals.water_cons_hyb_m3_ha * water_df_totals.area_ha
 )
 
+water_df_totals["water_cons_hyb_adj_m3"] = (
+    water_df_totals.water_cons_hyb_adj_m3_ha * water_df_totals.area_ha
+)
+
 # Convert to cubic decameters for calculation of water ESI
 water_df_totals["water_cons_hyb_dam3"] = water_df_totals.water_cons_hyb_m3 * 10**-3
+water_df_totals["water_cons_hyb_adj_dam3"] = (
+    water_df_totals.water_cons_hyb_adj_m3 * 10**-3
+)
 
 # -----------------------------------------------------------------------------
 # Export data
