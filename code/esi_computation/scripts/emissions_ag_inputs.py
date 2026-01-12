@@ -1022,6 +1022,7 @@ inputs_df_aggregation = (
         activity_count=("activity_performed", "nunique"),
         products=("kind_of_product_imp", join_unique),
         product_count=("kind_of_product_imp", "nunique"),
+        categories_organic=("category", join_unique),
         # Emission estimates
         synth_input_prod_t_co2eq_ha=(
             "synth_input_prod_t_co2eq_ha",
@@ -1045,6 +1046,14 @@ inputs_df_aggregation = (
                 x,
                 inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
                 APPLICABLE_KIND_SYNTHETIC,
+            ),
+        ),
+        nitrogen_org_t_ha=(
+            "nitrogen_org_t_ha",
+            lambda x: sum_applicable_if_all_available(
+                x,
+                inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
+                APPLICABLE_KIND_ORGANIC,
             ),
         ),
         org_fert_app_t_co2eq_ha=(
@@ -1113,9 +1122,11 @@ new_index = [
     "activity_count",
     "products",
     "product_count",
+    "categories_organic",
     "synth_input_prod_t_co2eq_ha",
     "synth_input_tran_dist_t_co2eq_ha",
     "synth_input_app_t_co2eq_ha",
+    "nitrogen_org_t_ha",
     "org_fert_app_t_co2eq_ha",
     "flag_missing_emissions_syn_app",
     "flag_missing_emissions_syn_prod",

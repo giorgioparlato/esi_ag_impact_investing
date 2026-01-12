@@ -16,6 +16,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import janitor
+import numpy.ma as ma
 import pandas as pd
 import rasterio
 from shapely.geometry import Point
@@ -23,11 +24,10 @@ from shapely.geometry import Point
 # -----------------------------------------------------------------------------
 # Paths and other constants
 # -----------------------------------------------------------------------------
-# File paths and sheet names
-# Get home directory (useful if you are working on different machines)
+# Home directory
 PATH_HOME = Path.home()
 
-# Define where the data is located
+# Data directory
 PATH_DATA = r"esi_cimmyt"
 
 # Path to geospatial layer for continents
@@ -52,6 +52,12 @@ PATH_ESI_COEFFICIENTS = (
     / r"data\raw\esi_coefficients\esi_coefficients_table_updated_20251212.xlsx"
 )
 
+# Path to climate zones
+PATH_CLIMATE_ZONES = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\climate_zones"
+
+# Path to SOC reference values
+PATH_SOC_REF = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_organic_carbon"
+
 # Path to reference table
 PATH_REF_TABLE = (
     PATH_HOME / PATH_DATA / r"data\processed\tables\reference_table.feather"
@@ -63,18 +69,35 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
+# Class names to identify the climate zone of each farm
+CLIMATE_ZONE_NAMES = {
+    1: "Warm Temperate Moist",
+    2: "Warm Temperate Dry",
+    3: "Cool Temperate Moist",
+    4: "Cool Temperate Dry",
+    5: "Polar Moist",
+    6: "Polar Dry",
+    7: "Boreal Moist",
+    8: "Boreal Dry",
+    9: "Tropical Montane",
+    10: "Tropical Wet",
+    11: "Tropical Moist",
+    12: "Tropical Dry",
+}
+
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
-# Load the reference table to enrich
+# Load the reference table
 ref_tab_df = pd.read_feather(PATH_REF_TABLE)
 
-# Load the continents shapefile into a GeoDataFrame
+# Load continents shape file
 continents_shp = gpd.read_file(PATH_CONTINENTS)
 
-# Open the raster in read/write mode (to allow setting the missing CRS)
+# Load vegetation types raster
 vegetation_types_raster = rasterio.open(PATH_VEGETATION_TYPES, mode="r+")
 
+# Load ESI coefficients
 esi_coefficients_df = pd.read_excel(PATH_ESI_COEFFICIENTS)
 
 # -----------------------------------------------------------------------------
@@ -153,11 +176,43 @@ ref_gdf_vtypes["veg_type"] = ref_gdf_vtypes["raster_value"].map(
 )
 
 # ESI coefficients
-ref_gdf_final = ref_gdf_vtypes.merge(
+ref_gdf_esi = ref_gdf_vtypes.merge(
     esi_coefficients_df, on=["region", "veg_type"], how="left"
 )
 
+# Climate zones
+# Coordinates
+coords = [(geom.x, geom.y) for geom in ref_gdf_esi.geometry]
+
+# Sample values
+with rasterio.open(PATH_CLIMATE_ZONES / "CLIMATE_ZONE.rst") as src:
+    sampled_values = [val[0] for val in src.sample(coords)]
+
+# Create the GeoDataFrame and Map values
+ref_gdf_zones = ref_gdf_esi.copy()
+ref_gdf_zones["climate_class"] = pd.Series(sampled_values).map(CLIMATE_ZONE_NAMES)
+
+# Apply climate alias correction
+climate_alias = {
+    "Warm Temperate Dry": "Cool Temperate Dry",
+    "Warm Temperate Moist": "Cool Temperate Moist",
+}
+
+ref_gdf_zones["climate_class_corrected"] = ref_gdf_zones["climate_class"].replace(
+    climate_alias
+)
+
+# SOC reference values
+ref_gdf_soc_ref = ref_gdf_zones.copy()
+
+coords = [(point.x, point.y) for point in ref_gdf_soc_ref.geometry]
+
+with rasterio.open(PATH_SOC_REF / r"DATA_GSOCSEQ_MAP_GSOCSEQ.GSOCMAP1-5-0.tif") as src:
+    sampled_values = [val[0] for val in src.sample(coords)]
+    ref_gdf_soc_ref["soc_ref"] = ma.masked_equal(sampled_values, src.nodata)
+
 # Sort values
+ref_gdf_final = ref_gdf_soc_ref.copy()
 ref_gdf_final = ref_gdf_final.sort_values(
     by=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
 )
