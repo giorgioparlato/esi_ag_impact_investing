@@ -925,7 +925,7 @@ inputs_df_imp_flags["flag_missing_emissions_org_app"] = np.select(
     ],
     [
         "NOT APPLICABLE",
-        "NOT MISSING",
+        "AVAILABLE",
         "MISSING Q + UC + MP + NP",
         "MISSING Q + UC + MP",
         "MISSING Q + UC + NP",
@@ -975,7 +975,7 @@ def join_reasons(s):
     if s.notna().any():
         return " | ".join(sorted(set(s.dropna())))
     else:
-        return "NOT MISSING"
+        return "AVAILABLE"
 
 
 # Helper functions for aggregation

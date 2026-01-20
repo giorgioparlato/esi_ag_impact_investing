@@ -169,6 +169,32 @@ fuel_df_imputation.loc[mask_fuel_motorized, "fuel_consumption_l_ha_imputed"] = (
     .transform(lambda x: x.fillna(x.mean()))
 )
 
+# Create flag indicating the status of fuel consumption values after imputation
+cond_not_applicable = ~fuel_df_imputation["power_source"].str.contains(
+    "MOTORIZED", na=True
+)
+cond_reported = fuel_df_imputation["fuel_consumption_l_ha"].notna()
+cond_imputed = (
+    fuel_df_imputation["fuel_consumption_l_ha"].isna()
+    & fuel_df_imputation["fuel_consumption_l_ha_imputed"].notna()
+)
+cond_missing = (
+    fuel_df_imputation["power_source"].str.contains("MOTORIZED")
+    & fuel_df_imputation["fuel_consumption_l_ha_imputed"].isna()
+)
+
+choice_not_applicable = "NOT APPLICABLE"
+choice_reported = "REPORTED"
+choice_imputed = "IMPUTED"
+choice_missing = "MISSING"
+
+conditions = [cond_not_applicable, cond_reported, cond_imputed, cond_missing]
+choices = [choice_not_applicable, choice_reported, choice_imputed, choice_missing]
+
+fuel_df_imputation["status"] = np.select(
+    condlist=conditions, choicelist=choices, default="UNKNOWN"
+)
+
 # Compute emissions from fuel (diesel) consumption
 # Approach based on Juarez-Hernandez et al.
 # Compute emissions from fuel consumption in CO_2 equivalent tons per hectare
@@ -210,6 +236,7 @@ fuel_df_agg = (
         power_sources=("power_source", join_unique),
         power_source_count=("power_source", "nunique"),
         fuel_cons_l_ha=("fuel_consumption_l_ha_imputed", sum_min_count),
+        fuel_cons_status=("status", join_unique),
         fuel_cons_t_co2eq_ha=("fuel_cons_t_co2eq_ha", sum_min_count),
         power_source_availability=("missing_power_source", power_source_status),
     )
@@ -243,6 +270,7 @@ new_index = [
     "activities",
     "activity_count",
     "fuel_cons_l_ha",
+    "fuel_cons_status",
     "fuel_cons_t_co2eq_ha",
     "fuel_cons_t_co2eq",
 ]

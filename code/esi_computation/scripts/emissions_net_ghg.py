@@ -1,0 +1,185 @@
+"""
+Computation of net GHG emissions based on conditional logic.
+
+Authors:
+    Dario Marone
+    Giorgio Parlato
+
+Date:
+    2026-01-20
+"""
+
+# -----------------------------------------------------------------------------
+# Imports
+# -----------------------------------------------------------------------------
+import sqlite3
+from pathlib import Path
+import pandas as pd
+import numpy as np
+
+# -----------------------------------------------------------------------------
+# Paths and constants
+# -----------------------------------------------------------------------------
+# Home directory
+PATH_HOME = Path.home()
+
+# Data directory
+PATH_DATA = r"esi_cimmyt"
+
+# Processed tables
+PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
+
+# SQL DB connection
+PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
+
+# -----------------------------------------------------------------------------
+# Import data
+# -----------------------------------------------------------------------------
+# Connection
+conn = sqlite3.connect(PATH_SQL_DB)
+
+# Multi-table query
+query = """
+SELECT 
+    reference_table.farmer_id, 
+    reference_table.plot_id, 
+    reference_table.logbook_id, 
+    reference_table.practice_id, 
+    reference_table.year,
+
+    agronomic_features.area_ha,
+
+    emissions_ag_inputs.products,
+    emissions_ag_inputs.flag_missing_emissions_syn_app,
+    emissions_ag_inputs.flag_missing_emissions_syn_prod,
+    emissions_ag_inputs.flag_missing_emissions_syn_tran,
+    emissions_ag_inputs.flag_missing_emissions_org_app,
+
+    emissions_ag_inputs.synth_input_prod_t_co2eq,
+    emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
+    emissions_ag_inputs.synth_input_app_t_co2eq,
+    emissions_ag_inputs.org_fert_app_t_co2eq,
+
+    emissions_residues.flag_total_pct,
+    emissions_residues.maize_residues_returned_tco2eq,
+    emissions_residues.maize_grain_residues_burnt_tco2eq,
+
+    emissions_fuel.fuel_cons_status,
+    emissions_fuel.fuel_cons_t_co2eq,
+    water_features.irrigation_types,
+    water_features.irr_equip_tco2eq,
+    water_features.irr_app_tco2eq,
+
+    emissions_soc.soc_delta_t_co2eq,
+    emissions_albedo.albedo_emissions_tco2eq
+
+FROM reference_table
+
+LEFT JOIN agronomic_features USING (practice_id)
+LEFT JOIN emissions_ag_inputs USING (practice_id)
+LEFT JOIN emissions_residues USING (practice_id)
+LEFT JOIN emissions_fuel USING (practice_id)
+LEFT JOIN emissions_soc USING (practice_id)
+LEFT JOIN emissions_albedo USING (practice_id)
+LEFT JOIN water_features USING (practice_id)
+"""
+
+df = pd.read_sql_query(query, conn)
+
+# -----------------------------------------------------------------------------
+# Data preprocessing
+# -----------------------------------------------------------------------------
+# Compute net GHG emissions based on conditions
+# GHG fluxes to include
+ghg_fluxes = [
+    "fuel_cons_t_co2eq",
+    "irr_equip_tco2eq",
+    "irr_app_tco2eq",
+    "synth_input_prod_t_co2eq",
+    "synth_input_tran_dist_t_co2eq",
+    "synth_input_app_t_co2eq",
+    "org_fert_app_t_co2eq",
+    "maize_residues_returned_tco2eq",
+    "maize_grain_residues_burnt_tco2eq",
+    "soc_delta_t_co2eq",
+    "albedo_emissions_tco2eq",
+]
+
+# Rows must have at least 1 non-null GHG flux
+valid_rows = df[ghg_fluxes].notna().any(axis=1)
+
+# Default formulas for net GHG emissions
+net_ghg_emissions_formula = df[ghg_fluxes].sum(axis=1, skipna=True).where(valid_rows)
+
+# Conditions defining exceptions where net GHG emissions should be missing
+net_ghg_emissions_conditions = [
+    # Exceptions for fuel consumption
+    df.fuel_cons_status.str.contains("None|UNKNOWN|MISSING", na=False),
+    # Exceptions for irrigation equipment and application
+    df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
+    & df.irr_equip_tco2eq.isna(),
+    df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
+    & df.irr_app_tco2eq.isna(),
+    # Exceptions for agricultural inputs
+    df.flag_missing_emissions_syn_prod.str.contains(
+        "\bMISSING EMISSION FACTOR\b", na=False
+    ),
+    df.flag_missing_emissions_syn_tran.str.contains(
+        "\bMISSING EMISSION FACTOR\b", na=False
+    ),
+    df.flag_missing_emissions_syn_app.str.contains(
+        "\bMISSING EMISSION FACTOR\b", na=False
+    ),
+    ~df.flag_missing_emissions_org_app.isin(
+        ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
+    ),
+    # Exceptions for crop residues
+    df.flag_total_pct.isin(["None", "MISSING ONLY", "PARTIALLY MISSING"]),
+    # Exceptions for SOC
+    df.soc_delta_t_co2eq.isna(),
+    # Exceptions for albedo
+    df.albedo_emissions_tco2eq.isna(),
+]
+
+# Choices for GHG emissions
+net_ghg_emissions_choices = [
+    # Choices for fuel consumption
+    np.nan,
+    # Choices for irrigation application and equipment
+    np.nan,
+    np.nan,
+    # Choices for agricultural inputs
+    np.nan,
+    np.nan,
+    np.nan,
+    np.nan,
+    # Choices for crop residues
+    np.nan,
+    # Choices for SOC
+    np.nan,
+    # Choices for albedo
+    np.nan,
+]
+
+# Compute net GHG emissions
+df["net_ghg_emissions_tco2eq"] = np.select(
+    net_ghg_emissions_conditions,
+    net_ghg_emissions_choices,
+    default=net_ghg_emissions_formula,
+)
+
+df["net_ghg_emissions_tco2eq_ha"] = df.net_ghg_emissions_tco2eq / df.area_ha
+
+# -----------------------------------------------------------------------------
+# Export data
+# -----------------------------------------------------------------------------
+# Write as feather file
+df.to_feather(PATH_PROCESSED_TABLES / r"11_emissions_net_ghg.feather")
+
+# Write to SQL database
+con = sqlite3.connect(PATH_SQL_DB)
+
+df.to_sql(name="11_emissions_net_ghg", con=con, if_exists="replace", index=False)
+
+# END
+exit("Execution complete.")
