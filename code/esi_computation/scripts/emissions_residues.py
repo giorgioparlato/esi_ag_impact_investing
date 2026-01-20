@@ -477,9 +477,10 @@ new_index = [
     "maize_grain_residues_returned_tco2eq_ha",
     "maize_forage_residues_returned_tco2eq_ha",
     "maize_residues_returned_tco2eq_ha",
-    "maize_grain_residues_burnt_tco2eq_hamaize_grain_residues_returned_tco2eq",
+    "maize_grain_residues_returned_tco2eq",
     "maize_forage_residues_returned_tco2eq",
     "maize_residues_returned_tco2eq",
+    "maize_grain_residues_burnt_tco2eq_ha",
     "maize_grain_residues_burnt_tco2eq",
 ]
 
