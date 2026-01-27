@@ -48,26 +48,23 @@ SELECT
     reference_table.year,
     reference_table.practices_type,
 
+    reference_table_enriched.luc_metric_scaled,
+    reference_table_enriched.ro_metric_scaled,
+    reference_table_enriched.cc_metric_rate_scaled,
+
     agronomic_features.area_km2,
-    
     water_features.hydric_regime,
     water_features.water_cons_hyb_dam3,
-    
     emissions_net_ghg.net_ghg_emissions_tco2eq,
-    economic_features.total_revenue_mxn,
-
-    reference_table_enriched.land_esi_k,
-    reference_table_enriched.water_esi_k,
-    reference_table_enriched.carbon_esi_k,
-    reference_table_enriched.ghg_esi_k
+    economic_features.total_revenue_mxn
 
 FROM reference_table
 
 LEFT JOIN reference_table_enriched USING (practice_id)
-LEFT JOIN economic_features USING (practice_id)
 LEFT JOIN agronomic_features USING (practice_id)
 LEFT JOIN water_features USING (practice_id)
 LEFT JOIN emissions_net_ghg USING (practice_id)
+LEFT JOIN economic_features USING (practice_id)
 """
 
 df_in = pd.read_sql_query(query, conn)
@@ -79,21 +76,24 @@ df_in = pd.read_sql_query(query, conn)
 df_scores = df_in.copy()
 
 # Land ESI scores
-df_scores["esi_land"] = df_scores["area_km2"] * df_scores["land_esi_k"]
+df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
+# Conditions
 water_conditions = [
-    df_scores.water_cons_hyb_dam3.notna() & df_scores.water_esi_k.notna(),
+    df_scores.water_cons_hyb_dam3.notna() & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
 ]
 
-water_values = [df_scores.water_cons_hyb_dam3 * df_scores.water_esi_k, 0]
+# Choices
+water_values = [df_scores.water_cons_hyb_dam3 * df_scores.ro_metric_scaled, 0]
 
+# Compute water ESI
 df_scores["esi_water"] = np.select(water_conditions, water_values, default=np.nan)
 
 # Climate ESI scores
 df_scores["esi_climate"] = (
-    df_scores["net_ghg_emissions_tco2eq"] * df_scores["ghg_esi_k"]
+    df_scores["net_ghg_emissions_tco2eq"] * df_scores["cc_metric_rate_scaled"]
 )
 
 # Total ESI scores

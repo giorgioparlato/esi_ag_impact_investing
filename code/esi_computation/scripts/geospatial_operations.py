@@ -3,9 +3,10 @@ Module Name: geospatial_operations
 Authors: Dario Marone, Giorgio Parlato
 Date: 2025-11-04
 Description:
-    This script performs a series of geospatial operations
+    This script performs a series of geospatial operations.
     The objective is to enrich the reference table with default attributes required in the ESI computation.
     These attributes are the region, vegetation type, and the associated land, water, and carbon/GHG coefficients.
+    The table also includes other features used for different purposes.
 """
 
 # -----------------------------------------------------------------------------
@@ -49,7 +50,7 @@ PATH_VEGETATION_TYPES = (
 PATH_ESI_COEFFICIENTS = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\esi_coefficients\esi_coefficients_table_updated_20251212.xlsx"
+    / r"data\raw\esi_coefficients\esi_coefficients_table_20260127.xlsx"
 )
 
 # Path to climate zones
