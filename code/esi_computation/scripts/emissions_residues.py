@@ -210,7 +210,7 @@ applicable_rows = residues_df_pct["group_activity"].isin(APPLICABLE_ACTIVITIES)
 residues_df_pct = residues_df_pct[applicable_rows]
 
 # Case when any percentages are available (NaNs will be skipped)
-case_normal = residues_df_pct[RESIDUES_RETURNED].notna().any(axis=1)
+case_normal = residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].notna().any(axis=1)
 result_normal = residues_df_pct[RESIDUES_RETURNED].sum(axis=1, skipna=True)
 
 # Case when all percentages are missing
@@ -490,13 +490,15 @@ residues_df_final = residues_df_final.reindex(columns=new_index)
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-residues_df_final.to_feather(PATH_EXPORT_TABLES / r"emissions_residues.feather")
+residues_df_final.to_feather(
+    PATH_EXPORT_TABLES / r"table_08_emissions_residues.feather"
+)
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
 residues_df_final.to_sql(
-    name="emissions_residues", con=con, if_exists="replace", index=False
+    name="table_08_emissions_residues", con=con, if_exists="replace", index=False
 )
 
 # END
