@@ -209,6 +209,7 @@ water_df_agg = (
             ),
         ),
         irrigation_types_count=("irrigation_type", "nunique"),
+        irrigation_events_count=("id_irrigation", "nunique"),
         irr_efficiency_param=("irr_efficiency_param", "mean"),
         total_water_consumption_per_irrigation_lt=(
             "total_water_consumption_per_irrigation_lt",
