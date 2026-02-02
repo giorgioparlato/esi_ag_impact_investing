@@ -340,15 +340,22 @@ inputs_df_imp_nitrogen.loc[mask_all_nan_group, "nitrogen_n_imputed"] = (
 # We still have 250 missing values after
 inputs_df_imp_moisture = inputs_df_imp_nitrogen.copy()
 
-## Conunt frequency of moisture values by product name
-moisture_counts_by_product = inputs_df_imp_moisture.groupby("product_name_applied")[
-    "product_moisture_in_the_application"
-].value_counts(dropna=True)
+# Filter for organic products only
+cond_organic = (
+    inputs_df_imp_moisture["kind_of_product"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
+)
 
-## Unstack result
+# Count frequency of moisture values by product name
+moisture_counts_by_product = (
+    inputs_df_imp_moisture[cond_organic]
+    .groupby("product_name_applied")["product_moisture_in_the_application"]
+    .value_counts(dropna=True)
+)
+
+# Unstack result
 moisture_counts_by_product_df = moisture_counts_by_product.unstack(fill_value=0)
 
-## Find most frequent value with a 50% threshold
+# Find most frequent value with a 50% threshold
 inputs_df_imp_moisture["product_moisture_imputed"] = inputs_df_imp_moisture[
     "product_moisture_in_the_application"
 ]
@@ -364,7 +371,8 @@ for product in moisture_counts_by_product_df.index:
 
     if percentage > 0.50:
         inputs_df_imp_moisture.loc[
-            (inputs_df_imp_moisture["product_name_applied"] == product)
+            (cond_organic)
+            & (inputs_df_imp_moisture["product_name_applied"] == product)
             & (inputs_df_imp_moisture["product_moisture_imputed"].isna()),
             "product_moisture_imputed",
         ] = most_frequent_moisture
@@ -1149,13 +1157,13 @@ inputs_df_final = inputs_df_final.reindex(columns=new_index)
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-inputs_df_final.to_feather(PATH_EXPORT_TABLES / r"emissions_ag_inputs.feather")
+inputs_df_final.to_feather(PATH_EXPORT_TABLES / r"table_6_emissions_ag_inputs.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
 inputs_df_final.to_sql(
-    name="emissions_ag_inputs", con=con, if_exists="replace", index=False
+    name="table_6_emissions_ag_inputs", con=con, if_exists="replace", index=False
 )
 
 # END
