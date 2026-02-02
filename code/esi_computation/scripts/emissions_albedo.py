@@ -82,7 +82,7 @@ albedo_df["albedo_original"] = albedo_df["veg_type"].map(VEGETATION_ALBEDO_MAP)
 albedo_df["albedo_change"] = albedo_df["albedo_original"] - ALBEDO_CROP_NORTH_AMERICA
 
 # Compute the equivalent emissions from albedo changes
-albedo_df["albedo_emissions_tco2eq_ha"] = albedo_df["albedo_change"] * GWP_ALBEDO
+albedo_df["albedo_emissions_tco2eq_ha"] = albedo_df["albedo_change"] * GWP_ALBEDO / 0.01
 albedo_df["albedo_emissions_tco2eq"] = (
     albedo_df["albedo_emissions_tco2eq_ha"] * albedo_df["area_ha"]
 )
@@ -91,12 +91,14 @@ albedo_df["albedo_emissions_tco2eq"] = (
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-albedo_df.to_feather(PATH_PROCESSED_TABLES / r"emissions_albedo.feather")
+albedo_df.to_feather(PATH_PROCESSED_TABLES / r"table_10_emissions_albedo.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
-albedo_df.to_sql(name="emissions_albedo", con=con, if_exists="replace", index=False)
+albedo_df.to_sql(
+    name="table_10_emissions_albedo", con=con, if_exists="replace", index=False
+)
 
 # END
 exit("Execution complete.")
