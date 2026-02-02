@@ -124,7 +124,7 @@ areas_df = pd.read_feather(
 # -----------------------------------------------------------------------------
 # Clean column names
 water_df_clean_columns = water_df_raw.copy()
-water_df_clean_columns = water_df_raw.clean_names(
+water_df_clean_columns = water_df_clean_columns.clean_names(
     axis="columns",
     strip_underscores=True,
     case_type="lower",
@@ -434,11 +434,13 @@ water_df_emissions["irr_equip_adj_tco2eq"] = np.where(
 # -----------------------------------------------------------------------------
 # Write as feather file
 water_df_final = water_df_emissions.copy()
-water_df_final.to_feather(PATH_EXPORT_TABLES / r"water_features.feather")
+water_df_final.to_feather(PATH_EXPORT_TABLES / r"table_5_water_features.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
-water_df_final.to_sql(name="water_features", con=con, if_exists="replace", index=False)
+water_df_final.to_sql(
+    name="table_5_water_features", con=con, if_exists="replace", index=False
+)
 
 # END
 exit("Execution complete.")
