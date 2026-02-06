@@ -202,29 +202,87 @@ residues_df_year["year"] = residues_df_year["year"].apply(
 residues_df_year["year"] = pd.to_numeric(residues_df_year["year"], errors="coerce")
 residues_df_year["year"] = residues_df_year["year"].astype("Int64")
 
-# Sum the crop residue observations (percentages) for the crop residue types left on the field
-# This logic reflects the assumption that if crop residue percentages are completely missing, residues are left on the field
-# This applies only to records under manual harvest and motorized harvest activities
+# We create a dataframe to deal with percentages
 residues_df_pct = residues_df_year.copy()
 applicable_rows = residues_df_pct["group_activity"].isin(APPLICABLE_ACTIVITIES)
 residues_df_pct = residues_df_pct[applicable_rows]
+residues_df_pct.head()
 
-# Case when any percentages are available (NaNs will be skipped)
-case_normal = residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].notna().any(axis=1)
-result_normal = residues_df_pct[RESIDUES_RETURNED].sum(axis=1, skipna=True)
-
-# Case when all percentages are missing
-case_assumption = (
-    residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].isna().all(axis=1)
-)
-result_assumption = 100.0
-
-# Total percentage column
-residues_df_pct["crop_residues_returned_total_pct"] = np.select(
-    [case_normal, case_assumption], [result_normal, 100.0], np.nan
+# Calculate the sum of returned and removed residue percentages
+sum_residues = residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].sum(
+    axis=1, skipna=True
 )
 
-# Flag
+# Calculate group-level medians using complete rows, to use as fallback for rows with incomplete data
+mask_all_reported = (
+    residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].notna().all(axis=1)
+)
+
+group_median_returned = (
+    residues_df_pct.loc[mask_all_reported, RESIDUES_RETURNED]
+    .sum(axis=1)
+    .groupby(residues_df_pct.loc[mask_all_reported, "group_activity"])
+    .median()
+)
+
+group_median_removed = (
+    residues_df_pct.loc[mask_all_reported, RESIDUES_REMOVED]
+    .sum(axis=1)
+    .groupby(residues_df_pct.loc[mask_all_reported, "group_activity"])
+    .median()
+)
+
+# Calculate total percentages of residues removed and returned
+# Applied to rows where any percentage is available and the sum is greater or equal to 80%
+residues_df_pct["residues_removed_perc_harvest"] = np.where(
+    (residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].notna().any(axis=1))
+    & (sum_residues >= 80),
+    residues_df_pct[RESIDUES_REMOVED].sum(axis=1, skipna=True),
+    residues_df_pct["group_activity"].map(group_median_removed),
+)
+
+residues_df_pct["residues_returned_perc_harvest"] = np.where(
+    (residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].notna().any(axis=1))
+    & (sum_residues >= 80),
+    residues_df_pct[RESIDUES_RETURNED].sum(axis=1, skipna=True),
+    residues_df_pct["group_activity"].map(group_median_returned),
+)
+
+# Dealing with cases where the sum of percentages exceeds 100%
+# The adjustment scales down the percentages proportionally to ensure the total does not exceed 100%
+exceeding_rows = residues_df_pct[
+    residues_df_pct["residues_returned_perc_harvest"]
+    + residues_df_pct["residues_removed_perc_harvest"]
+    > 100
+]
+
+for idx, row in exceeding_rows.iterrows():
+    total = (
+        row["residues_returned_perc_harvest"] + row["residues_removed_perc_harvest"]
+    )  # Total percentage before adjustment
+    ratio_returned = (
+        row["residues_returned_perc_harvest"] / total
+    )  # Proportion of returned residue in the total
+    ratio_removed = (
+        row["residues_removed_perc_harvest"] / total
+    )  # Proportion of removed residue in the total
+    residues_df_pct.at[idx, "residues_returned_perc_harvest"] = (
+        ratio_returned * 100
+    )  # Adjusted percentage of returned residue
+    residues_df_pct.at[idx, "residues_removed_perc_harvest"] = (
+        ratio_removed * 100
+    )  # Adjusted percentage of removed residue
+
+# Define cases for flag
+# case_normal: actual sums used (any percentage available AND sum >= 80%)
+case_normal = (
+    residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].notna().any(axis=1)
+) & (sum_residues >= 80)
+
+# case_assumption: group medians used (fallback for incomplete data)
+case_assumption = ~case_normal
+
+# Flag indicating whether the total percent was computed under normal case (0) or assumption case (1)
 residues_df_pct["flag_total_pct"] = np.select(
     [case_normal, case_assumption], [0, 1], np.nan
 )
@@ -269,7 +327,8 @@ residues_df_agg = residues_df_agg.groupby(
         "removed_from_plot_baled_in_nunches_perc_harvest",
         "mean",
     ),
-    crop_residues_returned_total_pct=("crop_residues_returned_total_pct", "mean"),
+    residues_returned_perc_harvest=("residues_returned_perc_harvest", "mean"),
+    residues_removed_perc_harvest=("residues_removed_perc_harvest", "mean"),
     flag_total_pct=("flag_total_pct", imputation_status),
 )
 
@@ -338,28 +397,22 @@ residues_df_emissions["maize_forage_residue_dm_t_ha"] = residues_df_emissions[
 ].sum(axis=1, skipna=False, min_count=1)
 
 # Compute the crop residue N content
-# Percentage of residues lost due to burning and removal, capped to 100%
-total_loss = np.where(
-    (
-        residues_df_emissions["burned_perc_harvest"].ge(1e-6)
-        & residues_df_emissions["removed_from_plot_baled_in_nunches_perc_harvest"].ge(
-            1e-6
-        )
-    ),
-    (
-        residues_df_emissions["burned_perc_harvest"] / 100 * COMBUSTION_FACTOR_MAIZE
-        + residues_df_emissions["removed_from_plot_baled_in_nunches_perc_harvest"] / 100
-    ),
-    0,
-)
-
-total_loss = total_loss.clip(max=1.0)
+# Calculate total_loss: percentage of residues lost due to burning and removal
+# Burned residues lose (100% - combustion_factor)%, plus all removed residues are lost
+# The complement represents residues that return to the soil
+residues_df_emissions["total_loss"] = (
+    1
+    - residues_df_emissions["residues_returned_perc_harvest"].fillna(0) / 100
+    + residues_df_emissions["burned_perc_harvest"].fillna(0)
+    / 100
+    * (1 - COMBUSTION_FACTOR_MAIZE)
+).clip(0, 1)
 
 grain_ag_n_kg_ha = (
     residues_df_emissions["maize_grain_ag_residue_dm_t_ha"]
     * 1000
     * N_CONTENT_ABOVE_GROUND
-    * (1 - total_loss)
+    * (1 - residues_df_emissions["total_loss"])
 )
 
 grain_bg_n_kg_ha = (
@@ -374,21 +427,20 @@ forage_bg_n_kg_ha = (
     * N_CONTENT_BELOW_GROUND
 )
 
-# Total N from crop residues
+# Total N from grain crop residues
 residues_df_emissions["maize_grain_residues_n_kg_ha"] = np.where(
     residues_df_emissions["maize_grain_yield_kg_dm_ha"] > 1e-6,
     (grain_ag_n_kg_ha + grain_bg_n_kg_ha),
     np.nan,
 )
 
-# Total N from crop residues
+# Total N from maize crop residues
 residues_df_emissions["maize_forage_residues_n_kg_ha"] = np.where(
     residues_df_emissions["maize_forage_yield_kg_dm_ha"] > 1e-6,
     (forage_bg_n_kg_ha),
     np.nan,
 )
 
-# Compute the nitrous oxide emissions
 # Compute direct nitrous oxide emissions from crop residues in t CO2eq
 # (crop residues term in the inputs term of equation 11.1)
 residues_df_emissions["maize_grain_residues_returned_tco2eq_ha"] = (
@@ -457,31 +509,32 @@ new_index = [
     "field_grazing_perc_harvest",
     "burned_perc_harvest",
     "removed_from_plot_baled_in_nunches_perc_harvest",
-    "crop_residues_returned_total_pct",
+    "residues_removed_perc_harvest",
+    "residues_returned_perc_harvest",
     "flag_total_pct",
     "area_ha",
     "maize_grain_yield_t_ha",
-    "maize_forage_yield_t_ha",
     "maize_grain_yield_kg_dm_ha",
-    "maize_forage_yield_kg_dm_ha",
     "maize_grain_ag_residue_dm_t_ha",
-    "maize_forage_ag_residue_dm_t_ha",
     "maize_grain_ag_biomass_dm_t_ha",
-    "maize_forage_ag_biomass_dm_t_ha",
     "maize_grain_bg_residue_dm_t_ha",
-    "maize_forage_bg_residue_dm_t_ha",
     "maize_grain_residue_dm_t_ha",
-    "maize_forage_residue_dm_t_ha",
     "maize_grain_residues_n_kg_ha",
-    "maize_forage_residues_n_kg_ha",
     "maize_grain_residues_returned_tco2eq_ha",
-    "maize_forage_residues_returned_tco2eq_ha",
-    "maize_residues_returned_tco2eq_ha",
-    "maize_grain_residues_returned_tco2eq",
-    "maize_forage_residues_returned_tco2eq",
-    "maize_residues_returned_tco2eq",
     "maize_grain_residues_burnt_tco2eq_ha",
+    "maize_grain_residues_returned_tco2eq",
     "maize_grain_residues_burnt_tco2eq",
+    "maize_forage_yield_t_ha",
+    "maize_forage_yield_kg_dm_ha",
+    "maize_forage_ag_biomass_dm_t_ha",
+    "maize_forage_ag_residue_dm_t_ha",
+    "maize_forage_bg_residue_dm_t_ha",
+    "maize_forage_residue_dm_t_ha",
+    "maize_forage_residues_n_kg_ha",
+    "maize_forage_residues_returned_tco2eq_ha",
+    "maize_forage_residues_returned_tco2eq",
+    "maize_residues_returned_tco2eq_ha",
+    "maize_residues_returned_tco2eq",
 ]
 
 residues_df_final = residues_df_final.reindex(columns=new_index)
