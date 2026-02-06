@@ -553,7 +553,7 @@ inputs_df_imp_estimation_syn["ef_synth_input_app_kg_co2eq_unit"] = np.nan
 # UREA, FERTILIZER, KG_HA
 mask_urea = (
     mask_synth
-    & inputs_df_imp_estimation_syn["product_category"].eq("FERTILIZER")
+    # & inputs_df_imp_estimation_syn["product_category"].eq("FERTILIZER")
     & inputs_df_imp_estimation_syn["product_name_applied"].eq("UREA")
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
