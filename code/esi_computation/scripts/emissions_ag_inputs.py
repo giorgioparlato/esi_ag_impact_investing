@@ -461,6 +461,18 @@ inputs_df_imp_estimation_syn.loc[
     mask_fert_default, "ef_synth_input_prod_kg_co2eq_unit"
 ] = 1.1519
 
+mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
+    "BAYFOLAN FORTE"
+) & inputs_df_imp_estimation_syn["units_ha"].eq("L_HA")
+
+inputs_df_imp_estimation_syn.loc[mask_bayfolan, "units_ha"] = "KG_HA"
+
+inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] = (
+    inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] * 1.22
+)
+
+inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n "] = 11.47
+
 # Compute emissions from synthetic input production
 inputs_df_imp_estimation_syn["synth_input_prod_t_co2eq_ha"] = (
     inputs_df_imp_estimation_syn["amount_of_product_applied_imputed"]
@@ -485,7 +497,9 @@ fert_tran_specific = {
 
 mask_fert_kg = (
     mask_synth
-    & inputs_df_imp_estimation_syn["product_category"].eq("FERTILIZER")
+    & inputs_df_imp_estimation_syn["product_category"].isin(
+        ["FERTILIZER", "FOLIAR FERTILIZER"]
+    )
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
 
@@ -552,7 +566,7 @@ inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] 
 mask_n_inputs = (
     mask_synth
     & inputs_df_imp_estimation_syn["product_category"].isin(
-        ["FERTILIZER", "INSECTICIDE", "FUNGICIDE", "HERBICIDE"]
+        ["FERTILIZER", "INSECTICIDE", "FUNGICIDE", "HERBICIDE", "FOLIAR FERTILIZER"]
     )
     & inputs_df_imp_estimation_syn["product_name_applied"].ne("UREA")
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
@@ -1157,13 +1171,13 @@ inputs_df_final = inputs_df_final.reindex(columns=new_index)
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-inputs_df_final.to_feather(PATH_EXPORT_TABLES / r"table_6_emissions_ag_inputs.feather")
+inputs_df_final.to_feather(PATH_EXPORT_TABLES / r"table_06_emissions_ag_inputs.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
 inputs_df_final.to_sql(
-    name="table_6_emissions_ag_inputs", con=con, if_exists="replace", index=False
+    name="table_06_emissions_ag_inputs", con=con, if_exists="replace", index=False
 )
 
 # END
