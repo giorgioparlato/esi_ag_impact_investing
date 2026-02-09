@@ -821,6 +821,7 @@ cond_not_chemical = inputs_df_imp_flags["kind_of_product_imp"] != "QUIMICO"
 missing_est_prod = inputs_df_imp_flags["synth_input_prod_t_co2eq_ha"].isna()
 missing_amount = inputs_df_imp_flags["flag_imputed_amount"].isna()
 missing_ef_prod = inputs_df_imp_flags["flag_missing_ef_prod"]
+fc = inputs_df_imp_flags["flag_failed_unit_conversion"]
 
 nc = cond_not_chemical
 me = missing_est_prod
@@ -831,6 +832,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_prod"] = np.select(
     [
         nc,
         ~me,
+        me & fc,
         me & ma & ef,
         me & ma & ~ef,
         me & ef & ~ma,
@@ -839,6 +841,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_prod"] = np.select(
     [
         "NOT APPLICABLE",
         "NOT MISSING",
+        "UNIT CONVERSION",
         "MISSING AMOUNT + EF",
         "MISSING AMOUNT",
         "MISSING EMISSION FACTOR",
@@ -859,6 +862,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_tran"] = np.select(
     [
         nc,
         ~me,
+        me & fc,
         me & ma & ef,
         me & ma & ~ef,
         me & ef & ~ma,
@@ -867,6 +871,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_tran"] = np.select(
     [
         "NOT APPLICABLE",
         "NOT MISSING",
+        "UNIT CONVERSION",
         "MISSING AMOUNT + EF",
         "MISSING AMOUNT",
         "MISSING EMISSION FACTOR",
@@ -887,6 +892,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_app"] = np.select(
     [
         nc,
         ~me,
+        me & fc,
         me & ma & ef,
         me & ma & ~ef,
         me & ef & ~ma,
@@ -895,6 +901,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_app"] = np.select(
     [
         "NOT APPLICABLE",
         "NOT MISSING",
+        "UNIT CONVERSION",
         "MISSING AMOUNT + EF",
         "MISSING AMOUNT",
         "MISSING EMISSION FACTOR",
@@ -966,6 +973,13 @@ inputs_df_imp_flags["flag_missing_emissions_org_app"] = np.select(
         "NO INPUTS MISSING (ESTIMATE ERROR)",
     ],
     default="OTHER/UNFLAGGED MISSING",  # Use a sensible default for unhandled combinations
+)
+
+# Flag for the use of pesticides
+inputs_df_imp_flags["flag_pesticides_use"] = (
+    inputs_df_imp_flags["product_category"]
+    .isin(["INSECTICIDE", "HERBICIDE", "FUNGICIDE"])
+    .astype("Int64")
 )
 
 
@@ -1042,8 +1056,10 @@ inputs_df_aggregation = (
         # Context
         activities=("activity_performed", join_unique),
         activity_count=("activity_performed", "nunique"),
-        products=("kind_of_product_imp", join_unique),
-        product_count=("kind_of_product_imp", "nunique"),
+        product_types=("kind_of_product_imp", join_unique),
+        product_types_count=("kind_of_product_imp", "nunique"),
+        product_categories=("product_category", join_unique),
+        product_categories_count=("product_category", "nunique"),
         categories_organic=("category", join_unique),
         # Emission estimates
         synth_input_prod_t_co2eq_ha=(
@@ -1101,6 +1117,7 @@ inputs_df_aggregation = (
         flag_imputed_amount=("flag_imputed_amount", imputation_status),
         flag_imputed_nitrogen=("flag_imputed_nitrogen", imputation_status),
         flag_imputed_moisture_level=("flag_imputed_moisture_level", imputation_status),
+        flag_pesticides_use=("flag_pesticides_use", "max"),
     )
     .reset_index()
 )
@@ -1142,8 +1159,10 @@ new_index = [
     "year",
     "activities",
     "activity_count",
-    "products",
-    "product_count",
+    "product_types",
+    "product_types_count",
+    "product_categories",
+    "product_categories_count",
     "categories_organic",
     "synth_input_prod_t_co2eq_ha",
     "synth_input_tran_dist_t_co2eq_ha",
@@ -1158,6 +1177,7 @@ new_index = [
     "flag_imputed_amount",
     "flag_imputed_nitrogen",
     "flag_imputed_moisture_level",
+    "flag_pesticides_use",
     "area_ha",
     "synth_input_prod_t_co2eq",
     "synth_input_tran_dist_t_co2eq",
