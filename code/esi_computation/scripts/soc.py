@@ -46,12 +46,14 @@ PATH_AGRONOMIC_FEATURES = (
 
 # Path to agricultural inputs table
 PATH_AG_INPUTS = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\emissions_ag_inputs.feather"
+    PATH_HOME
+    / PATH_DATA
+    / r"data\processed\tables\table_06_emissions_ag_inputs.feather"
 )
 
 # Path to crop residues table
 PATH_CROP_RESIDUES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\emissions_residues.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_08_emissions_residues.feather"
 )
 
 # CIMMYT dataset on field activities
@@ -236,7 +238,7 @@ soc_crop_res_df = pd.read_feather(
         "logbook_id",
         "practice_id",
         "year",
-        "crop_residues_returned_total_pct",
+        "residues_returned_perc_harvest",
     ],
 )
 
@@ -315,23 +317,25 @@ soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 # Assigning input coefficients
 # Classify FI level
 def classify_fi_level(row):
+    """Classify FI level based on organic inputs and crop residues."""
     n_input = row.get("nitrogen_org_t_ha", 0)
     category = row.get("categories_organic", "")
-    residues = row.get("crop_residues_returned_total_pct", 0)
+    residues = row.get("residues_returned_perc_harvest", 0)
 
     # Treat missing values as 0 or empty string
     n_input = 0 if pd.isna(n_input) else n_input
     residues = 0 if pd.isna(residues) else residues
     category = "" if pd.isna(category) else category
 
-    if category in MANURE_TYPES and n_input > 0 and residues == 100:
+    # Check conditions in order of specificity
+    if category in MANURE_TYPES and n_input > 0 and residues >= 80:
         return "High_with_manure"
-    elif n_input > 0 and residues == 100:
+    elif n_input == 0 and residues >= 80:
         return "High_no_manure"
-    elif residues == 100 or n_input > 0 and residues >= 50:
+    elif residues > 40 or (n_input > 0 and residues > 20):
         return "Medium"
-    else:
-        return "Low"
+
+    return "Low"
 
 
 soc_df_mapping = soc_df_merged.copy()
@@ -432,7 +436,7 @@ new_index = [
     "ftill",
     "categories_organic",
     "nitrogen_org_t_ha",
-    "crop_residues_returned_total_pct",
+    "residues_returned_perc_harvest",
     "fi_bau",
     "fi",
     "soc_ref",
@@ -449,12 +453,12 @@ soc_df_final = soc_df_final.reindex(columns=new_index)
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-soc_df_final.to_feather(PATH_EXPORT_TABLES / r"emissions_soc.feather")
+soc_df_final.to_feather(PATH_EXPORT_TABLES / r"table_09_emissions_soc.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
-soc_df_final.to_sql(name="emissions_soc", con=con, if_exists="replace", index=False)
-
-# END
+soc_df_final.to_sql(
+    name="table_09_emissions_soc", con=con, if_exists="replace", index=False
+)
 exit("Execution complete.")
