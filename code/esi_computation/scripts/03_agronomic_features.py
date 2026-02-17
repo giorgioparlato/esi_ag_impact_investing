@@ -1,12 +1,15 @@
 """
-Module Name: agronomic_features
+Preprocessing of the sowing-harvest-yields dataset by CIMMYT.
+Main operations:
+    - clean column names and adjust data types
+    - unit conversions for yields
+    - transformation of original yield column into separate columns for maize grain and forage yields
+    - aggregation at the practice ID level
+    - insertion of area in square kilometers and scale classification
+    - export results as feather file and to SQL database
+
 Authors: Dario Marone, Giorgio Parlato
-Date: 2025-10-27
-Description:
-    This script applies a series of preprocessing steps to the "2.-Sowing_harvest_yields_2012-2022_01.xlsx" dataset by CIMMYT.
-    The main operations are unit conversions for yields and selective aggregation of area-crop-product-yield variables.
-    The output is a table including agronomic features aggregated at the level of innovation or conventional practice IDs.
-    The features include plot areas (with scale classification), type and number of crops / products, and yield variables.
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -20,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # Home directory
 PATH_HOME = Path.home()
@@ -44,6 +47,9 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 # ID columns
 ID_COLUMNS = ["farmer_id", "plot_id", "logbook_id", "practice_id"]
 
@@ -61,10 +67,12 @@ OTHER_COLUMNS = [
     "unit_of_measure_ha",
 ]
 
-# Conversion factor from bales to metric tons (https://www.convertunits.com/from/bales/to/metric+ton)
+# Conversion factor from bales (US) to metric tons
+# Source: https://www.convertunits.com/from/bales/to/metric+ton
 CF_BALE_TON = 0.2177243376
 
 # Conversion factor from kilograms to metric tons
+# Source: https://www.google.com/search?q=kilograms+to+metric+tons&oq=kilograms+to+metric+tons&gs_lcrp=EgZjaHJvbWUyCQgAEEUYORiABDIGCAEQBhhA0gEIMzg2OGowajSoAgGwAgHxBW6Qdp7Y_Xbz8QVukHae2P128w&sourceid=chrome&ie=UTF-8
 CF_KG_TON = 0.001
 
 SUPPORTED_UNITS = ["TON", "BALE", "KG"]
@@ -209,7 +217,7 @@ new_col = agronomic_df_sqkm["area_ha"] / 100
 agronomic_df_sqkm.insert(position + 1, "area_km2", new_col)
 
 # Insert column with scale classification
-# Based on: https://doi.org/10.1371/journal.pone.0292528.t001
+# Source: https://doi.org/10.1371/journal.pone.0292528.t001
 agronomic_df_scale = agronomic_df_sqkm.copy()
 scale_col = np.select(
     [
@@ -233,13 +241,15 @@ agronomic_df_final = agronomic_df_scale.sort_values(
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-agronomic_df_final.to_feather(PATH_EXPORT_TABLES / r"agronomic_features.feather")
+agronomic_df_final.to_feather(
+    PATH_EXPORT_TABLES / r"table_03_agronomic_features.feather"
+)
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
 agronomic_df_final.to_sql(
-    name="agronomic_features", con=con, if_exists="replace", index=False
+    name="table_03_agronomic_features", con=con, if_exists="replace", index=False
 )
 
 # END

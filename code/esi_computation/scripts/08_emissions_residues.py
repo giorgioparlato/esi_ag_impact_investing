@@ -1,21 +1,14 @@
 """
-Preprocessing and emission estimation for crop residues.
+Estimation of emissions from crop residues management.
+Main operations:
+    - clean and select columns
+    - computation of emissions associated with
+    - aggregation of emissions and related variables at the practice ID level
+    - creation of data-quality flags
+    - export results as feather file and to SQL database
 
-This module processes the CIMMYT dataset
-'3._Labor_harvest_activities_2012-2022_01.xlsx' and performs:
-
-- standard cleaning steps
-- computation of emissions associated with
-- aggregation of emissions and related variables at the level of
-  innovation or conventional practice IDs
-- creation of data-quality flags and missingness diagnostics
-
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2025-12-08
+Authors: Dario Marone, Giorgio Parlato
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -29,7 +22,7 @@ import pandas as pd
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # Home directory
 PATH_HOME = Path.home()
@@ -48,7 +41,7 @@ SHEET_CIMMYT_MEXICO_ACTIVITIES = "Data"
 
 # Path to agronomic features table
 PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\agronomic_features.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
 )
 
 # Export path for processed tables
@@ -57,6 +50,9 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 KEY_IDS = ["farmer_id", "plot_id", "logbook_id", "practice_id", "activity_id"]
 
 KEY_VARS = [

@@ -1,12 +1,15 @@
 """
-Module Name: geospatial_operations
+Enrichment of the reference table with additional features.
+Main operations:
+    - assign a continent to each farm based on coordinates
+    - assign a vegetation type to each farm based on coordinates
+    - assign ESI coefficients based on continent and vegetation type
+    - assign a climate zone to each farm based on coordinates
+    - assign a soil organic carbon reference value to each farm based on coordinates
+    - export the enriched reference table as a feather file and to an SQL database
+
 Authors: Dario Marone, Giorgio Parlato
-Date: 2025-11-04
-Description:
-    This script performs a series of geospatial operations.
-    The objective is to enrich the reference table with default attributes required in the ESI computation.
-    These attributes are the region, vegetation type, and the associated land, water, and carbon/GHG coefficients.
-    The table also includes other features used for different purposes.
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -23,7 +26,7 @@ import rasterio
 from shapely.geometry import Point
 
 # -----------------------------------------------------------------------------
-# Paths and other constants
+# Paths
 # -----------------------------------------------------------------------------
 # Home directory
 PATH_HOME = Path.home()
@@ -40,28 +43,34 @@ PATH_CONTINENTS = (
 )
 
 # Path to vegetation types raster
+# Source: model output (LPJmL)
 PATH_VEGETATION_TYPES = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\geospatial\raster\vegetation_types\vegmap.NoLU.late.asc"
+    / r"data\raw\geospatial\raster\vegetation_types\vegmap_nolu_late_20251117.asc"
 )
 
 # Path to ESI coefficients
+# Source: model output (LPJmL, processed in Excel)
 PATH_ESI_COEFFICIENTS = (
     PATH_HOME
     / PATH_DATA
     / r"data\raw\esi_coefficients\esi_coefficients_table_20260127.xlsx"
 )
 
-# Path to climate zones
+# Path to climatic zones raster
+# Reference: European Soil Data Centre (ESDAC), esdac.jrc.ec.europa.eu, European Commission, Joint Research Centre
+# Source: https://esdac.jrc.ec.europa.eu/content/support-renewable-energy-directive#tabs-0-description=1
 PATH_CLIMATE_ZONES = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\climate_zones"
 
-# Path to SOC reference values
+# Path to SOC reference values raster
+# Reference: FAO and ITPS. 2018. Global Soil Organic Carbon Map (GSOCmap) Technical Report. Rome. 162 pp.
+# Source: https://console.cloud.google.com/storage/browser/fao-gismgr-gsocseq-data/DATA/GSOCSEQ/MAP;tab=objects?prefix=&forceOnObjectsSortingFiltering=false
 PATH_SOC_REF = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_organic_carbon"
 
 # Path to reference table
 PATH_REF_TABLE = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\reference_table.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_01_reference_table.feather"
 )
 
 # Export path for processed tables
@@ -70,7 +79,12 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
-# Class names to identify the climate zone of each farm
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
+# Class names to identify the climatic zone of each farm
+# Reference: 2019 Refinement to the 2006 IPCC Guidelines for National Greenhouse Gas Inventories, Volume 4, Agriculture, Forestry and Other Land Use
+# Source: Figure 3A.5.1 in https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/4_Volume4/19R_V4_Ch03_Land%20Representation.pdf
 CLIMATE_ZONE_NAMES = {
     1: "Warm Temperate Moist",
     2: "Warm Temperate Dry",
@@ -161,7 +175,8 @@ ref_gdf_vtypes["raster_value"] = ref_gdf_vtypes["geometry"].apply(
     lambda geom: get_raster_value(vegetation_types_raster, geom)
 )
 
-# Mapping raster values to vegetation types, based on the metric input tab in the ESI Excel
+# Mapping raster values to vegetation types
+# Source: based on the metric input tab in the ESI Excel tool
 raster_value_vtype_label_map = {
     1: "boreal forest",
     2: "cool climate grassland",
@@ -222,7 +237,9 @@ ref_gdf_final = ref_gdf_final.sort_values(
 # Export data
 # -----------------------------------------------------------------------------
 # Write the final GeoDataFrame as a feather file
-ref_gdf_final.to_feather(PATH_EXPORT_TABLES / r"reference_table_enriched.feather")
+ref_gdf_final.to_feather(
+    PATH_EXPORT_TABLES / r"table_02_reference_table_enriched.feather"
+)
 
 # Write the final DataFrame to an SQL database
 # Connect to the database
@@ -230,7 +247,7 @@ con = sqlite3.connect(PATH_SQL_DB)
 
 # Write the DataFrame to SQL
 ref_gdf_final.drop(columns="geometry").to_sql(
-    name="reference_table_enriched", con=con, if_exists="replace", index=False
+    name="table_02_reference_table_enriched", con=con, if_exists="replace", index=False
 )
 
 # END

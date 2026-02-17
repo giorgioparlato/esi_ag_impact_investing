@@ -1,19 +1,16 @@
 """
-Module Name: reference_table
+Preprocessing of the logbook dataset by CIMMYT.
+The main operations are:
+    - cleaning column names
+    - adjusting data types
+    - dropping rows with missing coordinates
+    - dropping plots with multiple coordinates
+    - selecting variables
+    - pivoting to long format
+    - exporting the cleaned reference table as a feather file and to an SQL database
+
 Authors: Dario Marone, Giorgio Parlato
-Date: 2025-11-03
-Description:
-    This script loads, cleans, and transforms the logbook dataset by CIMMYT.
-    The main operations are:
-        - Cleaning column names, adjusting data types
-        - Dropping rows with missing coordinates
-        - Dropping plots with multiple coordinates
-        - Selecting variables
-        - Pivoting to long format
-    The output is a reference table, including entity, space, and time indexes.
-    These variables form the foundation for any Earth system impact analysis.
-    Other essential attributes can be included as needed depending on the user needs.
-    In this case, the plot type and practices type are also included as additional variables.
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -26,7 +23,7 @@ import janitor
 import pandas as pd
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # File paths and sheet names
 # Get home directory (useful if you are working on different machines)
@@ -50,6 +47,9 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 # Define the id columns
 ID_COLUMNS = [
     "farmer_id",
@@ -221,12 +221,12 @@ logbook_df_final = logbook_df_final.sort_values(
 # Export data
 # -----------------------------------------------------------------------------
 # Write the final DataFrame as a feather file
-logbook_df_final.to_feather(PATH_EXPORT_TABLES / r"reference_table.feather")
+logbook_df_final.to_feather(PATH_EXPORT_TABLES / r"table_01_reference_table.feather")
 
 # Write the DataFrame to SQL
 con = sqlite3.connect(PATH_SQL_DB)
 logbook_df_final.to_sql(
-    name="reference_table", con=con, if_exists="replace", index=False
+    name="table_01_reference_table", con=con, if_exists="replace", index=False
 )
 
 # END

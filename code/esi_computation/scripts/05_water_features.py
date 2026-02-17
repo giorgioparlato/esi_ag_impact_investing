@@ -1,16 +1,15 @@
 """
-Module Name: water_features
+Estimation of water consumption.
+Main operations:
+    - cleaning column names, adjusting data types, selecting variables
+    - concatenation / aggregation of water features
+    - extraction of irrigation cost
+    - merging
+    - calculation of water metrics
+    - export results as feather file and to SQL database
+
 Authors: Dario Marone, Giorgio Parlato
-Date: 2025-11-03
-Description:
-    This script applies a series of preprocessing steps to the CIMMYT datasets on irrigation and farm economics.
-    The main operations are:
-        - Cleaning column names, adjusting data types, selecting variables
-        - Concatenation / aggregation of water features
-        - Extraction of irrigation cost
-        - Merging
-        - Calcution of water metrics
-    The output is a table including water features at the level of innovation or conventional practice IDs.
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -24,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # File paths and sheet names
 # Get home directory (useful if you are working on different machines)
@@ -43,13 +42,14 @@ PATH_CIMMYT_MEXICO_WATER = (
 SHEET_CIMMYT_MEXICO_WATER = "Data"
 
 # Path to water tariffs
+# Source: compiled from https://www.gob.mx/conagua/documentos/ley-federal-de-derechos-386262
 PATH_WATER_TARIFFS = (
     PATH_HOME / PATH_DATA / r"data\raw\water\water_tariffs_conagua.xlsx"
 )
 
 # Path to agronomic features table
 PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\agronomic_features.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
 )
 
 # Path to CIMMYT cost-revenue dataset (Mexico)
@@ -67,7 +67,9 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
-# Other constants
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 # ID columns in the irrigation dataset
 ID_KEYS_WATER = ["farmer_id", "plot_id", "logbook_id", "practice_id", "id_irrigation"]
 
@@ -93,8 +95,13 @@ WATER_MANAGEMENT_VARS = [
 
 WATER_CONSUMPTION_VARS = ["total_water_consumption_per_irrigation_lt"]
 
-EF_IRR_APP = 0.000148952
+# Emission factors for irrigation equipment and application (precalculated)
+# Reference: Juárez-Hernández, S., & Pardo, C. S. (2019). Irrigation energy use and related greenhouse gas emissions of maize production in Mexico. International journal of water resources development.
+# Source: based on values in Table 7 in https://doi.org/10.1080/07900627.2018.1482739;
+# average in tCO2eq per m3 of the values for summer and winter season,
+# for pressurized systems only, excluding groundwater pumping
 EF_IRR_EQUIP = 1.61319e-05
+EF_IRR_APP = 0.000148952
 
 # -----------------------------------------------------------------------------
 # Import data
@@ -166,6 +173,8 @@ water_df_vars = water_df_vars[
 ]
 
 # Assign project irrigation efficiency parameters based on irrigation type
+# Reference: Rohwer, J., Gerten, D., & Lucht, W. (2007). Development of functional irrigation types for improved global crop modelling.
+# Source: adapted from Table 6 in https://www.pik-potsdam.de/en/output/publications/pikreports/.files/pr104.pdf
 water_df_efficiency = water_df_vars.copy()
 
 efficiency_parameters_map = {
@@ -213,7 +222,7 @@ water_df_agg = (
         irr_efficiency_param=("irr_efficiency_param", "mean"),
         total_water_consumption_per_irrigation_lt=(
             "total_water_consumption_per_irrigation_lt",
-            lambda x: (x.sum(min_count=1) if x.notna().all() else np.nan),
+            lambda x: x.sum(min_count=1) if x.notna().all() else np.nan,
         ),
     )
     .reset_index()
@@ -435,12 +444,12 @@ water_df_emissions["irr_equip_adj_tco2eq"] = np.where(
 # -----------------------------------------------------------------------------
 # Write as feather file
 water_df_final = water_df_emissions.copy()
-water_df_final.to_feather(PATH_EXPORT_TABLES / r"table_5_water_features.feather")
+water_df_final.to_feather(PATH_EXPORT_TABLES / r"table_05_water_features.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 water_df_final.to_sql(
-    name="table_5_water_features", con=con, if_exists="replace", index=False
+    name="table_05_water_features", con=con, if_exists="replace", index=False
 )
 
 # END

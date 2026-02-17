@@ -1,12 +1,12 @@
 """
 Computation of net GHG emissions based on conditional logic.
+Main operations:
+    - query input data from the SQL database
+    - calculate the net GHG emissions
+    - export results as feather file and to SQL database
 
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2026-01-20
+Authors: Dario Marone, Giorgio Parlato
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -18,7 +18,7 @@ import pandas as pd
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # Home directory
 PATH_HOME = Path.home()
@@ -33,58 +33,61 @@ PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
+# Multi-table query
+QUERY = """
+SELECT 
+    table_01_reference_table.farmer_id, 
+    table_01_reference_table.plot_id, 
+    table_01_reference_table.logbook_id, 
+    table_01_reference_table.practice_id, 
+    table_01_reference_table.year,
+
+    table_03_agronomic_features.area_ha,
+
+    table_07_emissions_ag_inputs.products,
+    table_07_emissions_ag_inputs.flag_missing_emissions_syn_app,
+    table_07_emissions_ag_inputs.flag_missing_emissions_syn_prod,
+    table_07_emissions_ag_inputs.flag_missing_emissions_syn_tran,
+    table_07_emissions_ag_inputs.flag_missing_emissions_org_app,
+
+    table_07_emissions_ag_inputs.synth_input_prod_t_co2eq,
+    table_07_emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
+    table_07_emissions_ag_inputs.synth_input_app_t_co2eq,
+    table_07_emissions_ag_inputs.org_fert_app_t_co2eq,
+
+    table_08_emissions_residues.flag_total_pct,
+    table_08_emissions_residues.maize_residues_returned_tco2eq,
+    table_08_emissions_residues.maize_grain_residues_burnt_tco2eq,
+
+    table_06_emissions_fuel.fuel_cons_status,
+    table_06_emissions_fuel.fuel_cons_t_co2eq,
+    table_05_water_features.irrigation_types,
+    table_05_water_features.irr_equip_tco2eq,
+    table_05_water_features.irr_app_tco2eq,
+
+    table_09_emissions_soc.soc_delta_t_co2eq,
+    table_10_emissions_albedo.albedo_emissions_tco2eq
+
+FROM table_01_reference_table
+
+LEFT JOIN table_03_agronomic_features USING (practice_id)
+LEFT JOIN table_05_water_features USING (practice_id)
+LEFT JOIN table_06_emissions_fuel USING (practice_id)
+LEFT JOIN table_07_emissions_ag_inputs USING (practice_id)
+LEFT JOIN table_08_emissions_residues USING (practice_id)
+LEFT JOIN table_09_emissions_soc USING (practice_id)
+LEFT JOIN table_10_emissions_albedo USING (practice_id)
+"""
+
+# -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
 # Connection
 conn = sqlite3.connect(PATH_SQL_DB)
 
-# Multi-table query
-query = """
-SELECT 
-    reference_table.farmer_id, 
-    reference_table.plot_id, 
-    reference_table.logbook_id, 
-    reference_table.practice_id, 
-    reference_table.year,
-
-    agronomic_features.area_ha,
-
-    emissions_ag_inputs.products,
-    emissions_ag_inputs.flag_missing_emissions_syn_app,
-    emissions_ag_inputs.flag_missing_emissions_syn_prod,
-    emissions_ag_inputs.flag_missing_emissions_syn_tran,
-    emissions_ag_inputs.flag_missing_emissions_org_app,
-
-    emissions_ag_inputs.synth_input_prod_t_co2eq,
-    emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
-    emissions_ag_inputs.synth_input_app_t_co2eq,
-    emissions_ag_inputs.org_fert_app_t_co2eq,
-
-    emissions_residues.flag_total_pct,
-    emissions_residues.maize_residues_returned_tco2eq,
-    emissions_residues.maize_grain_residues_burnt_tco2eq,
-
-    emissions_fuel.fuel_cons_status,
-    emissions_fuel.fuel_cons_t_co2eq,
-    water_features.irrigation_types,
-    water_features.irr_equip_tco2eq,
-    water_features.irr_app_tco2eq,
-
-    emissions_soc.soc_delta_t_co2eq,
-    emissions_albedo.albedo_emissions_tco2eq
-
-FROM reference_table
-
-LEFT JOIN agronomic_features USING (practice_id)
-LEFT JOIN emissions_ag_inputs USING (practice_id)
-LEFT JOIN emissions_residues USING (practice_id)
-LEFT JOIN emissions_fuel USING (practice_id)
-LEFT JOIN emissions_soc USING (practice_id)
-LEFT JOIN emissions_albedo USING (practice_id)
-LEFT JOIN water_features USING (practice_id)
-"""
-
-df = pd.read_sql_query(query, conn)
+df = pd.read_sql_query(QUERY, conn)
 
 # -----------------------------------------------------------------------------
 # Data preprocessing
@@ -174,12 +177,12 @@ df["net_ghg_emissions_tco2eq_ha"] = df.net_ghg_emissions_tco2eq / df.area_ha
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-df.to_feather(PATH_PROCESSED_TABLES / r"11_emissions_net_ghg.feather")
+df.to_feather(PATH_PROCESSED_TABLES / r"table_11_emissions_net_ghg.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
-df.to_sql(name="11_emissions_net_ghg", con=con, if_exists="replace", index=False)
+df.to_sql(name="table_11_emissions_net_ghg", con=con, if_exists="replace", index=False)
 
 # END
 exit("Execution complete.")
