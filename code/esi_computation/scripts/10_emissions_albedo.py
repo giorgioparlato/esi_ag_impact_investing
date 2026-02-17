@@ -1,12 +1,13 @@
 """
 Estimation of emissions equivalent to albedo change.
+Main operations:
+    - map albedo estimates to vegetation types
+    - calculate albedo change
+    - estimate equivalent emissions
+    - export results as feather file and to SQL database
 
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2025-12-16
+Authors:Dario Marone, Giorgio Parlato
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -32,7 +33,7 @@ PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # Map of vegetation types and albedo estimates (higher values mean brighter surfaces)
-# Sources available in the project documentation
+# Source: model output (LPJmL)
 VEGETATION_ALBEDO_MAP = {
     "tropical forest": 0.15,
     "temperate forest": 0.16,
@@ -43,9 +44,12 @@ VEGETATION_ALBEDO_MAP = {
 }
 
 # Albedo estimate for cropland in North America
+# Source: model output (LPJmL)
 ALBEDO_CROP_NORTH_AMERICA = 0.25
 
-# GWP from Wang et al. (2023), 0.0259 kgCO2 / m2 / 0.01 brightening / year
+# GWP of albedo, 0.0259 kgCO2 / m2 / 0.01 brightening / year
+# Source: https://doi.org/10.1016/j.ecolind.2023.110690
+# Reference: Wang, K., Zhao, D., Zhu, Y., Gao, X., Deng, S., Chen, Z., ... & Cui, Y. (2023). Albedo-dominated biogeophysical warming effects induced by vegetation restoration on the Loess Plateau, China. Ecological Indicators, 154, 110690.
 # 1 ha is 10000 m2
 # This is equivalent to 259 kgCO2eq / ha / 0.01 brightening / year OR 0.259 tCO2eq / ha / 0.01 brightening / year
 GWP_ALBEDO = 0.259
@@ -55,13 +59,13 @@ GWP_ALBEDO = 0.259
 # -----------------------------------------------------------------------------
 # Table storing original vegetation types at each location
 veg_type_df = pd.read_feather(
-    PATH_PROCESSED_TABLES / "reference_table_enriched.feather",
+    PATH_PROCESSED_TABLES / "table_02_reference_table_enriched.feather",
     columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year", "veg_type"],
 )
 
 # Dataframe storing plot areas
 areas_df = pd.read_feather(
-    PATH_PROCESSED_TABLES / "agronomic_features.feather",
+    PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather",
     columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year", "area_ha"],
 )
 

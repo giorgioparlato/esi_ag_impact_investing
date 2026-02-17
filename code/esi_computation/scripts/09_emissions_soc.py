@@ -1,18 +1,14 @@
 """
 Preprocessing and emission estimation for soil organic carbon.
+Main operations:
+    - standard cleaning steps
+    - creation of tillage level column
+    - assignment of IPCC coefficients for estimating SOC
+    - estimation of SOC change and corresponding (negative) emissions
+    - export results as feather file and to SQL database
 
-This module performs:
-- standard cleaning steps
-- creation of tillage level column
-- assignment of IPCC coefficients for estimating SOC
-- estimation of SOC and corresponding (negative) emissions
-
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2026-01-12
+Authors: Dario Marone, Giorgio Parlato
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -26,7 +22,7 @@ import pandas as pd
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# Paths and other constants
+# Paths
 # -----------------------------------------------------------------------------
 # Home directory
 PATH_HOME = Path.home()
@@ -36,19 +32,21 @@ PATH_DATA = r"esi_cimmyt"
 
 # Path to enriched reference table
 PATH_REF_TABLE_ENRICHED = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\reference_table_enriched.feather"
+    PATH_HOME
+    / PATH_DATA
+    / r"data\processed\tables\table_02_reference_table_enriched.feather"
 )
 
 # Path to agronomic features table
 PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\agronomic_features.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
 )
 
 # Path to agricultural inputs table
 PATH_AG_INPUTS = (
     PATH_HOME
     / PATH_DATA
-    / r"data\processed\tables\table_06_emissions_ag_inputs.feather"
+    / r"data\processed\tables\table_07_emissions_ag_inputs.feather"
 )
 
 # Path to crop residues table
@@ -71,12 +69,17 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 KEY_IDS = ["farmer_id", "plot_id", "logbook_id", "practice_id", "activity_id"]
 
 KEY_VARS = ["year", "tillage_bem", "tillage_land"]
 
 # Map IPCC coefficients based on all the variables
-# Land use coefficients
+# Relative stock change factors for different management activities on cropland
+# Source: table 5.5 in https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_05_Ch5_Cropland.pdf
+# Land use coefficients (FLU) for long-term cultivated class
 FLU_MAPPING = {
     # Temperate/Boreal
     "Warm Temperate Moist": 0.69,
@@ -90,7 +93,9 @@ FLU_MAPPING = {
     "Tropical Montane": 0.64,
 }
 
-# Tillage coefficients
+# Tillage coefficients (FMG)
+# BAU coefficient
+FTILL_BAU = 1
 FTILL_MAPPING = {
     # Traditional tillage = Full tillage
     "TRADITIONAL TILLAGE": {"default": 1.00},
@@ -112,6 +117,7 @@ FTILL_MAPPING = {
         "Tropical Wet": 1.22,
         "Tropical Montane": 1.16,
     },
+    # Averaging for combinations
     "MINIMUM-REDUCED TILLAGE | TRADITIONAL TILLAGE": {
         "Cool Temperate Dry": (1.02 + 1) / 2,
         "Cool Temperate Moist": (1.08 + 1) / 2,
@@ -138,7 +144,7 @@ FTILL_MAPPING = {
     },
 }
 
-# Input coefficients
+# Input coefficients (FI)
 FI_MAPPING = {
     # LOW
     ("Low", "Cool Temperate Dry"): 0.95,
@@ -181,9 +187,6 @@ MANURE_TYPES = {
     "Poultry Manure | Swine Manure",
     "Horses/Mules/Asses Manure | Swine Manure",
 }
-
-# BAU coefficient
-FTILL_BAU = 1
 
 # -----------------------------------------------------------------------------
 # Import data

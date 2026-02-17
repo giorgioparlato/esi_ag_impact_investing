@@ -1,12 +1,8 @@
 """
 Clean and reshape cost and revenue data, compute economic metrics.
 
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2025-12-17
+Authors: Dario Marone, Giorgio Parlato
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -20,7 +16,7 @@ import pandas as pd
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # File paths and sheet names
 # Home directory
@@ -40,7 +36,7 @@ SHEET_CIMMYT_MEXICO_ECONOMICS = "Data"
 
 # Agronomic features table
 PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\agronomic_features.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
 )
 
 # Export path for processed tables
@@ -49,7 +45,9 @@ PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
-# Other constants
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 # ID columns in costs and revenues dataset
 ID_KEYS_ECONOMICS = [
     "farmer_id",
@@ -199,13 +197,15 @@ economics_df_metrics.replace([np.inf, -np.inf], np.nan, inplace=True)
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-economics_df_metrics.to_feather(PATH_PROCESSED_TABLES / r"economic_features.feather")
+economics_df_metrics.to_feather(
+    PATH_PROCESSED_TABLES / r"table_04_economic_features.feather"
+)
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
 economics_df_metrics.to_sql(
-    name="economic_features", con=con, if_exists="replace", index=False
+    name="table_04_economic_features", con=con, if_exists="replace", index=False
 )
 
 # END

@@ -1,14 +1,13 @@
 """
-Module Name: emissions_fuel
+Estimation of emissions from fuel consumption.
+Main operations:
+    - imputation of missing fuel consumption values
+    - computation of emissions from fuel consumption
+    - aggregation of emissions and related variables at practice ID level
+    - export results as feather file and to SQL database
+
 Authors: Dario Marone, Giorgio Parlato
-Date: 2025-11-18
-Description:
-    This script applies a series of preprocessing steps to the "3._Labor_harvest_activities_2012-2022_01.xlsx" dataset by CIMMYT.
-    The main operations are:
-        - imputation of missing fuel consumption values
-        - computation of emissions from fuel consumption
-        - aggregation of emissions and related variables
-    The output is a table including features related to fuel consumption aggregated at the level of innovation or conventional practice IDs.
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -22,7 +21,7 @@ import pandas as pd
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # File paths and sheet names
 # Get home directory (useful if you are working on different machines)
@@ -48,14 +47,17 @@ PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # Path to reference table
 PATH_REFERENCE_TABLE = (
-    PATH_HOME / PATH_DATA / PATH_EXPORT_TABLES / r"reference_table.feather"
+    PATH_HOME / PATH_DATA / PATH_EXPORT_TABLES / r"table_01_reference_table.feather"
 )
 
 # Path to agronomic features table
 PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\agronomic_features.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
 )
 
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 ID_KEYS_ACTIVITIES = [
     "farmer_id",
     "plot_id",
@@ -72,9 +74,9 @@ FUEL_COLUMNS = [
 ]
 
 # Emission factors in kilograms per liter
-# Comprising both emissions from upstream processing of fuel
-# and on-site emissions from fuel consumption
+# Comprising emissions from upstream processing of fuel and on-site emissions from fuel consumption
 # Source: table A9 in https://linkinghub.elsevier.com/retrieve/pii/S0360544218325350
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 EF_CO2_KG_L = 3.0
 EF_N2O_KG_L = 1.0 * 10**-3
 EF_CH4_KG_L = 2.6 * 10**-3
@@ -281,12 +283,14 @@ fuel_df_final = fuel_df_final.reindex(columns=new_index)
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-fuel_df_final.to_feather(PATH_EXPORT_TABLES / r"emissions_fuel.feather")
+fuel_df_final.to_feather(PATH_EXPORT_TABLES / r"table_06_emissions_fuel.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
-fuel_df_final.to_sql(name="emissions_fuel", con=con, if_exists="replace", index=False)
+fuel_df_final.to_sql(
+    name="table_06_emissions_fuel", con=con, if_exists="replace", index=False
+)
 
 # END
 exit("Execution complete.")

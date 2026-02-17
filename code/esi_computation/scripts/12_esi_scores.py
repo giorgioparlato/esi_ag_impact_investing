@@ -1,12 +1,13 @@
 """
 Computation of ESI scores.
+Main operations:
+    - query necessary variables from SQL database
+    - compute absolute and intensity ESI scores
+    - export results as feather file and to SQL database
 
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2026-01-26
+Note: this script uses **scaled** ESI metrics for improved interpretability
+Authors: Dario Marone, Giorgio Parlato
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -18,7 +19,7 @@ import pandas as pd
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # Home directory
 PATH_HOME = Path.home()
@@ -33,63 +34,59 @@ PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
+# Multi-table query
+QUERY = """
+SELECT 
+    table_01_reference_table.farmer_id, 
+    table_01_reference_table.plot_id, 
+    table_01_reference_table.logbook_id, 
+    table_01_reference_table.practice_id, 
+    table_01_reference_table.year,
+    table_01_reference_table.practices_type,
+
+    table_02_reference_table_enriched.luc_metric_scaled,
+    table_02_reference_table_enriched.ro_metric_scaled,
+    table_02_reference_table_enriched.cc_metric_rate_scaled,
+
+    table_03_agronomic_features.area_km2,
+    table_05_water_features.hydric_regime,
+    table_05_water_features.water_cons_hyb_dam3,
+    table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
+    table_04_economic_features.total_revenue_mxn
+
+FROM table_01_reference_table
+
+LEFT JOIN table_02_reference_table_enriched USING (practice_id)
+LEFT JOIN table_03_agronomic_features USING (practice_id)
+LEFT JOIN table_05_water_features USING (practice_id)
+LEFT JOIN table_11_emissions_net_ghg USING (practice_id)
+LEFT JOIN table_04_economic_features USING (practice_id)
+"""
+
+# -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
 # Connection
 conn = sqlite3.connect(PATH_SQL_DB)
 
-# Multi-table query
-query = """
-SELECT 
-    reference_table.farmer_id, 
-    reference_table.plot_id, 
-    reference_table.logbook_id, 
-    reference_table.practice_id, 
-    reference_table.year,
-    reference_table.practices_type,
-
-    reference_table_enriched.luc_metric_scaled,
-    reference_table_enriched.ro_metric_scaled,
-    reference_table_enriched.cc_metric_rate_scaled,
-
-    agronomic_features.area_km2,
-    water_features.hydric_regime,
-    water_features.water_cons_hyb_dam3,
-    emissions_net_ghg.net_ghg_emissions_tco2eq,
-    economic_features.total_revenue_mxn
-
-FROM reference_table
-
-LEFT JOIN reference_table_enriched USING (practice_id)
-LEFT JOIN agronomic_features USING (practice_id)
-LEFT JOIN water_features USING (practice_id)
-LEFT JOIN emissions_net_ghg USING (practice_id)
-LEFT JOIN economic_features USING (practice_id)
-"""
-
-df_in = pd.read_sql_query(query, conn)
+df_in = pd.read_sql_query(QUERY, conn)
 
 # -----------------------------------------------------------------------------
 # Data preprocessing
 # -----------------------------------------------------------------------------
-# Compute ESI scores
-df_scores = df_in.copy()
-
 # Land ESI scores
+df_scores = df_in.copy()
 df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
-# Conditions
 water_conditions = [
     df_scores.water_cons_hyb_dam3.notna() & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
 ]
-
-# Choices
-water_values = [df_scores.water_cons_hyb_dam3 * df_scores.ro_metric_scaled, 0]
-
-# Compute water ESI
-df_scores["esi_water"] = np.select(water_conditions, water_values, default=np.nan)
+water_choices = [df_scores.water_cons_hyb_dam3 * df_scores.ro_metric_scaled, 0]
+df_scores["esi_water"] = np.select(water_conditions, water_choices, default=np.nan)
 
 # Climate ESI scores
 df_scores["esi_climate"] = (

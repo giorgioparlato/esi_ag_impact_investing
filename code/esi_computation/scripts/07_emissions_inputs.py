@@ -1,24 +1,17 @@
 """
-Preprocessing and emission estimation for synthetic and organic agricultural inputs.
+Estimation of emissions from synthetic and organic agricultural inputs.
+Main operations:
+    - standard cleaning steps
+    - imputation of missing values for product types, amounts, n content and moisture levels
+    - computation of emissions associated with synthetic input production,
+    transport and distribution, and application
+    - computation of emissions associated with organic input application
+    - aggregation of emissions and related variables at the practice ID level
+    - creation of data-quality flags and missingness diagnostics
+    - export results as feather file and to SQL database
 
-This module processes the CIMMYT dataset
-'4.-Agricultural supplies_2012-2022_01.xlsx' and performs:
-
-- standard cleaning steps
-- imputation of missing values for product types, amounts, n content and moisture levels
-- computation of emissions associated with synthetic input production,
-  transport and distribution, and application
-- computation of emissions associated with organic input application
-- aggregation of emissions and related variables at the level of
-  innovation or conventional practice IDs
-- creation of data-quality flags and missingness diagnostics
-
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2025-12-03
+Authors: Dario Marone, Giorgio Parlato
+Date: 2026-02-13
 """
 
 # -----------------------------------------------------------------------------
@@ -32,7 +25,7 @@ import pandas as pd
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# Paths and constants
+# Paths
 # -----------------------------------------------------------------------------
 # Home directory
 PATH_HOME = Path.home()
@@ -53,7 +46,7 @@ SHEET_CIMMYT_MEXICO_ORGANIC_INPUTS = "Organic Fertilization"
 
 # Path to agronomic features table
 PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\agronomic_features.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
 )
 
 # Export path for processed tables
@@ -62,6 +55,9 @@ PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
 KEY_IDS_SYNTHETIC = [
     "farmer_id",
     "plot_id",
@@ -397,13 +393,15 @@ pest_keys = [
     ("INSECTICIDE", "L_HA"),
 ]
 
+# Source: compiled from table A9 in supplementary material of reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 pest_values = [
-    14.09768,  # HERBICIDE & KG_HA
-    6.223658,  # HERBICIDE & L_HA
-    8.202714,  # FUNGICIDE & KG_HA
-    7.46783,  # FUNGICIDE & L_HA
-    2.697334,  # INSECTICIDE & KG_HA
-    9.13278,  # INSECTICIDE & L_HA
+    14.130,  # HERBICIDE & KG_HA
+    6.238,  # HERBICIDE & L_HA
+    8.222,  # FUNGICIDE & KG_HA
+    7.485,  # FUNGICIDE & L_HA
+    2.704,  # INSECTICIDE & KG_HA
+    9.154,  # INSECTICIDE & L_HA
 ]
 
 pest_factors = pd.Series(
@@ -428,14 +426,16 @@ inputs_df_imp_estimation_syn.loc[mask_pest, "ef_synth_input_prod_kg_co2eq_unit"]
 ]
 
 # Specific fertilizer factors (KG_HA)
+# Source: compiled from table A9 in supplementary material of reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 fert_specific = {
-    "UREA": 1.124768,
-    "SULFATO DE AMONIO": 0.64399,
-    "FOSFATO DIAMONICO (DAP)": 1.26697,
-    "CLORURO DE POTASIO": 0.6247946,
-    "FOSFATO MONOAMONICO": 1.05447,
-    "SUPERFOSFATO SIMPLE": 0.2173244,
-    "SUPERFOSFATO TRIPLE": 0.630778,
+    "UREA": 1.134,
+    "SULFATO DE AMONIO": 0.647,
+    "FOSFATO DIAMONICO (DAP)": 1.272,
+    "CLORURO DE POTASIO": 0.626,
+    "FOSFATO MONOAMONICO": 1.058,
+    "SUPERFOSFATO SIMPLE": 0.218,
+    "SUPERFOSFATO TRIPLE": 0.633,
 }
 
 mask_fert_kg = (
@@ -457,9 +457,11 @@ mask_fert_default = (
     & inputs_df_imp_estimation_syn["ef_synth_input_prod_kg_co2eq_unit"].isna()
 )
 
+# Source: compiled from table A9 in supplementary material of reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 inputs_df_imp_estimation_syn.loc[
     mask_fert_default, "ef_synth_input_prod_kg_co2eq_unit"
-] = 1.1519
+] = 1.108
 
 mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
     "BAYFOLAN FORTE"
@@ -467,10 +469,14 @@ mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
 
 inputs_df_imp_estimation_syn.loc[mask_bayfolan, "units_ha"] = "KG_HA"
 
+# Assign conversion factor for Bayfolan Forte based on density to convert from L_HA to KG_HA
+# Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/producto-ficha-tecnica/Bayfolan-Forte-Ficha-tecnica.pdf
 inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] = (
     inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] * 1.22
 )
 
+# Assign nitrogen content percentage for Bayfolan Forte
+# Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/producto-ficha-tecnica/Bayfolan-Forte-Ficha-tecnica.pdf
 inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n "] = 11.47
 
 # Compute emissions from synthetic input production
@@ -484,15 +490,16 @@ inputs_df_imp_estimation_syn["synth_input_prod_t_co2eq_ha"] = (
 inputs_df_imp_estimation_syn["ef_synth_input_tran_dist_kg_co2eq_kg"] = np.nan
 
 # Fertilizers (specific products, KG_HA)
-
-fert_tran_specific = {
-    "UREA": 6.91e-02,
-    "CLORURO DE POTASIO": 5.45e-02,
-    "FOSFATO DIAMONICO (DAP)": 4.26e-02,
-    "FOSFATO MONOAMONICO": 5.10e-02,
-    "SULFATO DE AMONIO": 3.65e-02,
-    "SUPERFOSFATO SIMPLE": 3.51e-02,
-    "SUPERFOSFATO TRIPLE": 3.51e-02,
+# Source: compiled from table A10 in supplementary material of reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
+fert_tran_dist_specific = {
+    "UREA": 0.069,
+    "CLORURO DE POTASIO": 0.055,
+    "FOSFATO DIAMONICO (DAP)": 0.043,
+    "FOSFATO MONOAMONICO": 0.051,
+    "SULFATO DE AMONIO": 0.036,
+    "SUPERFOSFATO SIMPLE": 0.035,
+    "SUPERFOSFATO TRIPLE": 0.035,
 }
 
 mask_fert_kg = (
@@ -507,7 +514,7 @@ mask_fert_kg = (
 inputs_df_imp_estimation_syn.loc[
     mask_fert_kg, "ef_synth_input_tran_dist_kg_co2eq_kg"
 ] = inputs_df_imp_estimation_syn.loc[mask_fert_kg, "product_name_applied"].map(
-    fert_tran_specific
+    fert_tran_dist_specific
 )
 
 # Default for other FERTILIZER / KG_HA (NPK compounds)
@@ -516,16 +523,18 @@ mask_fert_default = (
     & inputs_df_imp_estimation_syn["ef_synth_input_tran_dist_kg_co2eq_kg"].isna()
 )
 
+# Source: compiled from table A10 in supplementary material of reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 inputs_df_imp_estimation_syn.loc[
     mask_fert_default, "ef_synth_input_tran_dist_kg_co2eq_kg"
-] = 7.43e-02  # NPK
+] = 0.074  # NPK
 
 # Pesticides (INSECTICIDE / HERBICIDE / FUNGICIDE, KG_HA)
-
+# Reference:
 pest_tran_factors = {
-    "INSECTICIDE": 1.71e-01,
-    "HERBICIDE": 6.74e-02,
-    "FUNGICIDE": 4.34e-01,
+    "INSECTICIDE": 0.171,
+    "HERBICIDE": 0.067,
+    "FUNGICIDE": 0.434,
 }
 
 mask_pest_kg = (
@@ -558,9 +567,9 @@ mask_urea = (
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
 
-inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] = (
-    0.7333333333
-)
+# Source: compiled from equation 20 in reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
+inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] = 0.73
 
 # Other synthetic FERTILIZER / INSECTICIDE / FUNGICIDE / HERBICIDE with N > 0, KG_HA, not UREA
 mask_n_inputs = (
@@ -573,8 +582,10 @@ mask_n_inputs = (
     & (inputs_df_imp_estimation_syn["nitrogen_n"] > 0)
 )
 
+# Source: compiled from equation 20 in reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 inputs_df_imp_estimation_syn.loc[mask_n_inputs, "ef_synth_input_app_kg_co2eq_unit"] = (
-    4.682857143 * inputs_df_imp_estimation_syn.loc[mask_n_inputs, "nitrogen_n"] / 100
+    4.29 * inputs_df_imp_estimation_syn.loc[mask_n_inputs, "nitrogen_n"] / 100
 )
 
 # Compute emissions from synthetic input application
@@ -667,7 +678,7 @@ inputs_df_imp_estimation_org["dry_organic_amount_t_ha"] = np.select(
     default=np.nan,
 )
 
-# Map manure types to macro-categories
+# Map manure types to macro-categories (AI-generated)
 manure_mapping = {
     "ESTIERCOL DE BOVINO": "Cattle Manure",
     "ESTIERCOL DE GANADO MULAR": "Horses/Mules/Asses Manure",
@@ -753,7 +764,7 @@ EF_N2ON_KG_N_KG = 0.01
 # Source: page 10 in https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_11_Ch11_N2O&CO2.pdf#page=10.19
 CF_N2ON_N2O = 44 / 28
 
-# Global warming potential
+# Global warming potential of nitrous oxide
 # Source: https://ghgprotocol.org/sites/default/files/2024-08/Global-Warming-Potential-Values%20%28August%202024%29.pdf
 GWP_AR6_N2O = 273
 
@@ -1191,13 +1202,13 @@ inputs_df_final = inputs_df_final.reindex(columns=new_index)
 # Export data
 # -----------------------------------------------------------------------------
 # Write as feather file
-inputs_df_final.to_feather(PATH_EXPORT_TABLES / r"table_06_emissions_ag_inputs.feather")
+inputs_df_final.to_feather(PATH_EXPORT_TABLES / r"table_07_emissions_ag_inputs.feather")
 
 # Write to SQL database
 con = sqlite3.connect(PATH_SQL_DB)
 
 inputs_df_final.to_sql(
-    name="table_06_emissions_ag_inputs", con=con, if_exists="replace", index=False
+    name="table_07_emissions_ag_inputs", con=con, if_exists="replace", index=False
 )
 
 # END
