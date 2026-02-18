@@ -64,8 +64,8 @@ SELECT
     table_06_emissions_fuel.fuel_cons_status,
     table_06_emissions_fuel.fuel_cons_t_co2eq,
     table_05_water_features.irrigation_types,
-    table_05_water_features.irr_equip_tco2eq,
-    table_05_water_features.irr_app_tco2eq,
+    table_05_water_features.irr_equip_gb_tco2eq,
+    table_05_water_features.irr_app_gb_tco2eq,
 
     table_09_emissions_soc.soc_delta_t_co2eq,
     table_10_emissions_albedo.albedo_emissions_tco2eq
@@ -96,8 +96,8 @@ df = pd.read_sql_query(QUERY, conn)
 # GHG fluxes to include
 ghg_fluxes = [
     "fuel_cons_t_co2eq",
-    "irr_equip_tco2eq",
-    "irr_app_tco2eq",
+    "irr_equip_gb_tco2eq",
+    "irr_app_gb_tco2eq",
     "synth_input_prod_t_co2eq",
     "synth_input_tran_dist_t_co2eq",
     "synth_input_app_t_co2eq",
@@ -120,9 +120,9 @@ net_ghg_emissions_conditions = [
     df.fuel_cons_status.str.contains("None|UNKNOWN|MISSING", na=False),
     # Exceptions for irrigation equipment and application
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_equip_tco2eq.isna(),
+    & df.irr_equip_gb_tco2eq.isna(),
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_app_tco2eq.isna(),
+    & df.irr_app_gb_tco2eq.isna(),
     # Exceptions for agricultural inputs
     df.flag_missing_emissions_syn_prod.str.contains(
         "\bMISSING EMISSION FACTOR\b", na=False
