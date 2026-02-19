@@ -117,7 +117,7 @@ net_ghg_emissions_formula = df[ghg_fluxes].sum(axis=1, skipna=True).where(valid_
 # Conditions defining exceptions where net GHG emissions should be missing
 net_ghg_emissions_conditions = [
     # Exceptions for fuel consumption
-    df.fuel_cons_status.str.contains("None|UNKNOWN|MISSING", na=False),
+    df.fuel_cons_status.str.contains("UNKNOWN|MISSING", na=False),
     # Exceptions for irrigation equipment and application
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
     & df.irr_equip_gb_tco2eq.isna(),
@@ -125,19 +125,22 @@ net_ghg_emissions_conditions = [
     & df.irr_app_gb_tco2eq.isna(),
     # Exceptions for agricultural inputs
     df.flag_missing_emissions_syn_prod.str.contains(
-        "\bMISSING EMISSION FACTOR\b", na=False
+        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
     ),
     df.flag_missing_emissions_syn_tran.str.contains(
-        "\bMISSING EMISSION FACTOR\b", na=False
+        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
     ),
     df.flag_missing_emissions_syn_app.str.contains(
-        "\bMISSING EMISSION FACTOR\b", na=False
+        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
     ),
     ~df.flag_missing_emissions_org_app.isin(
         ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
+    )
+    & df.flag_missing_emissions_org_app.str.contains(
+        r"\bMISSING Q\b", na=False, regex=True
     ),
     # Exceptions for crop residues
-    df.flag_total_pct.isin(["None", "MISSING ONLY", "PARTIALLY MISSING"]),
+    df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
     # Exceptions for SOC
     df.soc_delta_t_co2eq.isna(),
     # Exceptions for albedo
