@@ -7,7 +7,7 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors:Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -59,7 +59,7 @@ GWP_ALBEDO = 0.259
 # -----------------------------------------------------------------------------
 # Table storing original vegetation types at each location
 veg_type_df = pd.read_feather(
-    PATH_PROCESSED_TABLES / "table_02_reference_table_enriched.feather",
+    PATH_PROCESSED_TABLES / "table_02_reference_enriched.feather",
     columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year", "veg_type"],
 )
 

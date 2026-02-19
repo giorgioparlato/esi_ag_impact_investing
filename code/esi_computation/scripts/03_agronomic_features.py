@@ -9,7 +9,7 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -31,11 +31,11 @@ PATH_HOME = Path.home()
 # Define where the data is located
 PATH_DATA = r"esi_cimmyt"
 
-# CIMMYT dataset storing agronomic features
+# CIMMYT dataset storing agronomic features (version 6.0)
 PATH_CIMMYT_MEXICO_AGRONOMIC_FEATURES = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\2.-Sowing_harvest_yields_2012-2022_01.xlsx"
+    / r"data\raw\cimmyt\dataverse_files\2.-Sowing_harvest_yields_2012-2022_02.xlsx"
 )
 
 # Sheet name

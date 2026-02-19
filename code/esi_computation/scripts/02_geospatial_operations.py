@@ -9,7 +9,7 @@ Main operations:
     - export the enriched reference table as a feather file and to an SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -70,7 +70,7 @@ PATH_SOC_REF = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_organic
 
 # Path to reference table
 PATH_REF_TABLE = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_01_reference_table.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_01_reference.feather"
 )
 
 # Export path for processed tables
@@ -237,9 +237,7 @@ ref_gdf_final = ref_gdf_final.sort_values(
 # Export data
 # -----------------------------------------------------------------------------
 # Write the final GeoDataFrame as a feather file
-ref_gdf_final.to_feather(
-    PATH_EXPORT_TABLES / r"table_02_reference_table_enriched.feather"
-)
+ref_gdf_final.to_feather(PATH_EXPORT_TABLES / r"table_02_reference_enriched.feather")
 
 # Write the final DataFrame to an SQL database
 # Connect to the database
@@ -247,7 +245,7 @@ con = sqlite3.connect(PATH_SQL_DB)
 
 # Write the DataFrame to SQL
 ref_gdf_final.drop(columns="geometry").to_sql(
-    name="table_02_reference_table_enriched", con=con, if_exists="replace", index=False
+    name="table_02_reference_enriched", con=con, if_exists="replace", index=False
 )
 
 # END
