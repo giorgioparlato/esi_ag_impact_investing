@@ -383,7 +383,7 @@ residues_df_emissions["maize_forage_bg_residue_dm_t_ha"] = (
     residues_df_emissions["maize_forage_ag_biomass_dm_t_ha"] * BELOW_ABOVE_RATIO_MAIZE
 )
 
-# Compute the total crop residue dry matter in t / ha
+# Compute the total crop residue dry matter for grain, forage and both, in t per ha
 residues_df_emissions["maize_grain_residue_dm_t_ha"] = residues_df_emissions[
     ["maize_grain_ag_residue_dm_t_ha", "maize_grain_bg_residue_dm_t_ha"]
 ].sum(axis=1, skipna=False, min_count=1)
@@ -391,6 +391,15 @@ residues_df_emissions["maize_grain_residue_dm_t_ha"] = residues_df_emissions[
 residues_df_emissions["maize_forage_residue_dm_t_ha"] = residues_df_emissions[
     ["maize_forage_ag_residue_dm_t_ha", "maize_forage_bg_residue_dm_t_ha"]
 ].sum(axis=1, skipna=False, min_count=1)
+
+residues_df_emissions["maize_residues_dm_t_ha"] = residues_df_emissions[
+    ["maize_grain_residue_dm_t_ha", "maize_forage_residue_dm_t_ha"]
+].sum(axis=1, skipna=True, min_count=1)
+
+# Total crop residues returned (grain and forage), in t per ha
+residues_df_emissions["maize_residues_returned_dm_t_ha"] = residues_df_emissions[
+    "maize_residues_dm_t_ha"
+] * (residues_df_emissions["residues_returned_perc_harvest"].fillna(0) / 100)
 
 # Compute the crop residue N content
 # Calculate total_loss: percentage of residues lost due to burning and removal
@@ -529,6 +538,8 @@ new_index = [
     "maize_forage_residues_n_kg_ha",
     "maize_forage_residues_returned_tco2eq_ha",
     "maize_forage_residues_returned_tco2eq",
+    "maize_residues_dm_t_ha",
+    "maize_residues_returned_dm_t_ha",
     "maize_residues_returned_tco2eq_ha",
     "maize_residues_returned_tco2eq",
 ]

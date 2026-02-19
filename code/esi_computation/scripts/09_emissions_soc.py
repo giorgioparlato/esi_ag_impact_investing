@@ -240,6 +240,7 @@ soc_crop_res_df = pd.read_feather(
         "practice_id",
         "year",
         "residues_returned_perc_harvest",
+        "maize_residues_returned_dm_t_ha",
     ],
 )
 
@@ -418,6 +419,23 @@ soc_df_estimation["soc_delta_t_co2eq_ha"] = (
     soc_df_estimation["soc_delta"] * 3.67 * -1 / soc_df_estimation["area_ha"]
 )
 
+# Extra tillage variable for conservation agriculture dummy
+soc_df_estimation["tillage_ca_dummy"] = np.where(
+    soc_df_estimation["tillage"].str.contains("MINIMUM-REDUCED TILLAGE|ZERO TILLAGE"),
+    1,
+    0,
+)
+
+# Conservation agriculture dummy based on FAO definition
+# Source: FAO CA principles https://www.fao.org/conservation-agriculture/en/
+# Source: threshold for crop residues in accordance with FAO https://doi.org/10.1007/s13593-017-0432-z
+soc_df_estimation["ca_fao_dummy"] = np.where(
+    (soc_df_estimation["tillage_ca_dummy"] == 1)
+    & (soc_df_estimation["maize_residues_returned_dm_t_ha"] >= 2),
+    1,
+    0,
+)
+
 # Final DataFrame
 soc_df_final = soc_df_estimation.sort_values(
     by=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
@@ -434,10 +452,13 @@ new_index = [
     "flu",
     "tillage",
     "tillage_count",
+    "tillage_ca_dummy",
     "ftill",
     "categories_organic",
     "nitrogen_org_t_ha",
     "residues_returned_perc_harvest",
+    "maize_residues_returned_dm_t_ha",
+    "ca_fao_dummy",
     "fi_bau",
     "fi",
     "soc_ref",
