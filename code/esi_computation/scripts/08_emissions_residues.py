@@ -8,7 +8,7 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -34,7 +34,7 @@ PATH_DATA = r"esi_cimmyt"
 PATH_CIMMYT_MEXICO_ACTIVITIES = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\3._Labor_harvest_activities_2012-2022_01.xlsx"
+    / r"data\raw\cimmyt\dataverse_files\3._Labor_harvest_activities_2012-2022_02.xlsx"
 )
 
 SHEET_CIMMYT_MEXICO_ACTIVITIES = "Data"

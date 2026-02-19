@@ -7,7 +7,7 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -30,11 +30,11 @@ PATH_HOME = Path.home()
 # Define where the data is located
 PATH_DATA = r"esi_cimmyt"
 
-# Path to CIMMYT dataset storing fuel consumption data (Mexico)
+# Path to CIMMYT dataset storing fuel consumption data (version 6.0)
 PATH_CIMMYT_MEXICO_ACTIVITIES = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\3._Labor_harvest_activities_2012-2022_01.xlsx"
+    / r"data\raw\cimmyt\dataverse_files\3._Labor_harvest_activities_2012-2022_02.xlsx"
 )
 
 SHEET_CIMMYT_MEXICO_ACTIVITIES = "Data"
@@ -47,7 +47,7 @@ PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # Path to reference table
 PATH_REFERENCE_TABLE = (
-    PATH_HOME / PATH_DATA / PATH_EXPORT_TABLES / r"table_01_reference_table.feather"
+    PATH_HOME / PATH_DATA / PATH_EXPORT_TABLES / r"table_01_reference.feather"
 )
 
 # Path to agronomic features table

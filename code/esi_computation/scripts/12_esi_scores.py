@@ -7,7 +7,7 @@ Main operations:
 
 Note: this script uses **scaled** ESI metrics for improved interpretability
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -39,16 +39,16 @@ PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 # Multi-table query
 QUERY = """
 SELECT 
-    table_01_reference_table.farmer_id, 
-    table_01_reference_table.plot_id, 
-    table_01_reference_table.logbook_id, 
-    table_01_reference_table.practice_id, 
-    table_01_reference_table.year,
-    table_01_reference_table.practices_type,
+    table_01_reference.farmer_id, 
+    table_01_reference.plot_id, 
+    table_01_reference.logbook_id, 
+    table_01_reference.practice_id, 
+    table_01_reference.year,
+    table_01_reference.practices_type,
 
-    table_02_reference_table_enriched.luc_metric_scaled,
-    table_02_reference_table_enriched.ro_metric_scaled,
-    table_02_reference_table_enriched.cc_metric_rate_scaled,
+    table_02_reference_enriched.luc_metric_scaled,
+    table_02_reference_enriched.ro_metric_scaled,
+    table_02_reference_enriched.cc_metric_rate_scaled,
 
     table_03_agronomic_features.area_km2,
     table_05_water_features.hydric_regime,
@@ -56,9 +56,9 @@ SELECT
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
     table_04_economic_features.total_revenue_mxn
 
-FROM table_01_reference_table
+FROM table_01_reference
 
-LEFT JOIN table_02_reference_table_enriched USING (practice_id)
+LEFT JOIN table_02_reference_enriched USING (practice_id)
 LEFT JOIN table_03_agronomic_features USING (practice_id)
 LEFT JOIN table_05_water_features USING (practice_id)
 LEFT JOIN table_11_emissions_net_ghg USING (practice_id)

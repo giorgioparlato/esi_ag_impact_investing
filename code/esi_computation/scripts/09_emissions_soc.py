@@ -8,7 +8,7 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -32,9 +32,7 @@ PATH_DATA = r"esi_cimmyt"
 
 # Path to enriched reference table
 PATH_REF_TABLE_ENRICHED = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\processed\tables\table_02_reference_table_enriched.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\table_02_reference_enriched.feather"
 )
 
 # Path to agronomic features table
@@ -58,7 +56,7 @@ PATH_CROP_RESIDUES = (
 PATH_CIMMYT_MEXICO_ACTIVITIES = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\3._Labor_harvest_activities_2012-2022_01.xlsx"
+    / r"data\raw\cimmyt\dataverse_files\3._Labor_harvest_activities_2012-2022_02.xlsx"
 )
 
 SHEET_CIMMYT_MEXICO_ACTIVITIES = "Data"

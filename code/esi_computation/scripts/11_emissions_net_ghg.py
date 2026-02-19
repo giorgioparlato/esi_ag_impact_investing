@@ -6,7 +6,7 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -38,15 +38,15 @@ PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 # Multi-table query
 QUERY = """
 SELECT 
-    table_01_reference_table.farmer_id, 
-    table_01_reference_table.plot_id, 
-    table_01_reference_table.logbook_id, 
-    table_01_reference_table.practice_id, 
-    table_01_reference_table.year,
+    table_01_reference.farmer_id, 
+    table_01_reference.plot_id, 
+    table_01_reference.logbook_id, 
+    table_01_reference.practice_id, 
+    table_01_reference.year,
 
     table_03_agronomic_features.area_ha,
 
-    table_07_emissions_ag_inputs.products,
+    table_07_emissions_ag_inputs.product_types,
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_app,
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_prod,
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_tran,
@@ -70,7 +70,7 @@ SELECT
     table_09_emissions_soc.soc_delta_t_co2eq,
     table_10_emissions_albedo.albedo_emissions_tco2eq
 
-FROM table_01_reference_table
+FROM table_01_reference
 
 LEFT JOIN table_03_agronomic_features USING (practice_id)
 LEFT JOIN table_05_water_features USING (practice_id)

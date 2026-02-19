@@ -3,14 +3,13 @@ Preprocessing of the logbook dataset by CIMMYT.
 The main operations are:
     - cleaning column names
     - adjusting data types
-    - dropping rows with missing coordinates
+    - dropping rows with key information
     - dropping plots with multiple coordinates
     - selecting variables
-    - pivoting to long format
     - exporting the cleaned reference table as a feather file and to an SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -32,11 +31,11 @@ PATH_HOME = Path.home()
 # Define where the data is located
 PATH_DATA = r"esi_cimmyt"
 
-# Path to CIMMYT logbook dataset (Mexico)
+# Path to CIMMYT logbook dataset (version 6.0)
 PATH_CIMMYT_MEXICO_LOGBOOK = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\1.-Farmer_Plot_Logbook_2012-2022_02.xlsx"
+    / r"data\raw\cimmyt\dataverse_files\1.-Farmer_Plot_Logbook_2012-2022_03.xlsx"
 )
 
 SHEET_CIMMYT_MEXICO_LOGBOOK = "Data"
@@ -55,8 +54,7 @@ ID_COLUMNS = [
     "farmer_id",
     "plot_id",
     "logbook_id",
-    "innovation_practices_id",
-    "conventional_practices_id",
+    "practice_id",
 ]
 
 # Define the key columns that must not be missing
@@ -64,23 +62,35 @@ KEY_COLUMNS = [
     "farmer_id",
     "plot_id",
     "logbook_id",
-    "innovation_practices_id",
-    "conventional_practices_id",
+    "practice_id",
     "year",
     "latitude_n",
     "longitude_w",
+    "plot_type",
+    "practices_type",
 ]
 
 # Define other variables of interest
 OTHER_VARS = [
-    "plot_type",
-    "property_type",
-    "land_ownership",
     "state",
+    "id_state_inegi",
     "municipality",
+    "id_municipality_inegi",
+    "land_ownership",
+    "property_type",
+    "winter_summer_season",
+    "hydric_regime",
     "agroecological_hub",
     "technification_level",
-    "winter_summer_season",
+    "predominant_topografic_relief",
+    "soil_texture",
+    "soil_erosion_level",
+    "average_annual_precipitation_mm",
+    "average_annual_temperature_c",
+    "main_incline",
+    "total_area_of_the_plots_sown_by_producer_ha",
+    "total_plot_area_ha_data_obtained_by_survey_with_the_farmer",
+    "area_ha_approach_data_calculated_by_the_delimitation_of_the_plot_in_satellite_image",
     "conservation_agriculture",
     "fertilization",
     "planting_arrangements",
@@ -90,6 +100,7 @@ OTHER_VARS = [
     "soil_conservation",
     "commercialization",
     "postharvest",
+    "other_innovation",
 ]
 
 # -----------------------------------------------------------------------------
@@ -97,9 +108,8 @@ OTHER_VARS = [
 # -----------------------------------------------------------------------------
 # Load the dataset
 logbook_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_LOGBOOK, sheet_name=SHEET_CIMMYT_MEXICO_LOGBOOK, header=0
+    io=PATH_CIMMYT_MEXICO_LOGBOOK, sheet_name=SHEET_CIMMYT_MEXICO_LOGBOOK, header=1
 )
-
 # -----------------------------------------------------------------------------
 # Data preprocessing
 # -----------------------------------------------------------------------------
@@ -116,8 +126,17 @@ logbook_df_clean_columns = logbook_df_raw.clean_names(
 )
 
 logbook_df_clean_columns.rename(
-    columns={"planting_arregements": "planting_arrangements"}, inplace=True
+    columns={
+        "innovation_conventional_practices_id": "practice_id",
+        "planting_arregements": "planting_arrangements",
+    },
+    inplace=True,
 )
+
+# Strip trailing spaces
+logbook_df_clean_columns["practices_type"] = logbook_df_clean_columns[
+    "practices_type"
+].str.strip()
 
 # Convert mixed columns to string type to prevent downstream issues
 # The string conversion preserves missing values in the id columns
@@ -132,11 +151,8 @@ logbook_df_adjust_dtypes["year"] = pd.to_numeric(
 ).astype("Int64")
 
 # Drop rows with missing values in the key columns
-# Excluding conventional_practices_id column from key columns during this operation
-# Otherwise all extension plots (without conventional ids) would be dropped
 logbook_df_dropna = logbook_df_adjust_dtypes.copy()
-columns_for_dropna = [col for col in KEY_COLUMNS if col != "conventional_practices_id"]
-logbook_df_dropna.dropna(subset=columns_for_dropna, inplace=True)
+logbook_df_dropna.dropna(subset=KEY_COLUMNS, inplace=True)
 
 # Drop plot ids with multiple coordinates
 ids_coords_df = logbook_df_dropna[KEY_COLUMNS].copy()
@@ -164,52 +180,9 @@ logbook_df_bad_records = logbook_df_dropna[~bad_records_mask].copy()
 # Select variables of interest
 logbook_df_clean = logbook_df_bad_records[KEY_COLUMNS + OTHER_VARS].copy()
 
-# Unpivot the DataFrame to long format
-logbook_df_melted = pd.melt(
-    logbook_df_clean,
-    id_vars=[
-        "farmer_id",
-        "plot_id",
-        "logbook_id",
-        "year",
-        "latitude_n",
-        "longitude_w",
-    ]
-    + OTHER_VARS,
-    value_vars=["innovation_practices_id", "conventional_practices_id"],
-    value_name="practice_id",
-)
-
-# Drop rows where no practice id is available
-logbook_df_melted.dropna(subset=["practice_id"], inplace=True)
-
-# Map previous column names to value consistent with the rest of the dataset
-practices_map = {
-    "innovation_practices_id": "INNOVATION",
-    "conventional_practices_id": "CONVENTIONAL",
-}
-
-# Replace the values using the map
-logbook_df_melted["variable"] = logbook_df_melted["variable"].replace(practices_map)
-
-# Rename the column
-logbook_df_melted.rename(columns={"variable": "practices_type"}, inplace=True)
-
 # Reindex the DataFrame
-logbook_df_final = logbook_df_melted.reindex(
-    axis=1,
-    labels=[
-        "farmer_id",
-        "plot_id",
-        "logbook_id",
-        "practice_id",
-        "longitude_w",
-        "latitude_n",
-        "year",
-        "practices_type",
-    ]
-    + OTHER_VARS,
-    copy=True,
+logbook_df_final = logbook_df_clean.reindex(
+    axis=1, labels=KEY_COLUMNS + OTHER_VARS, copy=True
 )
 
 # Sort values
@@ -221,12 +194,12 @@ logbook_df_final = logbook_df_final.sort_values(
 # Export data
 # -----------------------------------------------------------------------------
 # Write the final DataFrame as a feather file
-logbook_df_final.to_feather(PATH_EXPORT_TABLES / r"table_01_reference_table.feather")
+logbook_df_final.to_feather(PATH_EXPORT_TABLES / r"table_01_reference.feather")
 
 # Write the DataFrame to SQL
 con = sqlite3.connect(PATH_SQL_DB)
 logbook_df_final.to_sql(
-    name="table_01_reference_table", con=con, if_exists="replace", index=False
+    name="table_01_reference", con=con, if_exists="replace", index=False
 )
 
 # END

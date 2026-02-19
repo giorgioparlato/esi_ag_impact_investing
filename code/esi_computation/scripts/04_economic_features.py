@@ -2,7 +2,7 @@
 Clean and reshape cost and revenue data, compute economic metrics.
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-13
+Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -25,11 +25,11 @@ PATH_HOME = Path.home()
 # Data directory
 PATH_DATA = r"esi_cimmyt"
 
-# CIMMYT costs and revenues dataset (Mexico)
+# CIMMYT costs and revenues dataset (version  6.0)
 PATH_CIMMYT_MEXICO_ECONOMICS = (
     PATH_HOME
     / PATH_DATA
-    / r"data\raw\cimmyt\BEM_e-Agrology_Mexico\6.-Costs and revenues_2012-2022_01.xlsx"
+    / r"data\raw\cimmyt\dataverse_files\6.-Costs and revenues_2012-2022_02.xlsx"
 )
 
 SHEET_CIMMYT_MEXICO_ECONOMICS = "Data"
