@@ -54,6 +54,7 @@ SELECT
     table_05_water_features.hydric_regime,
     table_05_water_features.water_cons_hyb_gb_poisson_dam3,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
+    table_11_emissions_net_ghg.net_ghg_emissions_nofuel_tco2eq,
     table_04_economic_features.total_revenue_mxn
 
 FROM table_01_reference
@@ -97,10 +98,20 @@ df_scores["esi_climate"] = (
     df_scores["net_ghg_emissions_tco2eq"] * df_scores["cc_metric_rate_scaled"]
 )
 
+# Climate ESI scores
+df_scores["esi_climate_nofuel"] = (
+    df_scores["net_ghg_emissions_nofuel_tco2eq"] * df_scores["cc_metric_rate_scaled"]
+)
+
+
 # Total ESI scores
 df_scores["esi_total"] = df_scores[["esi_land", "esi_water", "esi_climate"]].sum(
     axis=1, skipna=False, min_count=1
 )
+
+df_scores["esi_total_nofuel"] = df_scores[
+    ["esi_land", "esi_water", "esi_climate_nofuel"]
+].sum(axis=1, skipna=False, min_count=1)
 
 
 # ESI intensity variables
@@ -110,9 +121,11 @@ def compute_esi_intensity_vars(df):
     """
     numerators = {
         "total": "esi_total",
+        "total_nofuel": "esi_total_nofuel",
         "land": "esi_land",
         "water": "esi_water",
         "climate": "esi_climate",
+        "climate_nofuel": "esi_climate_nofuel",
     }
 
     denominators = {"area": "area_km2", "revenue": "total_revenue_mxn"}
