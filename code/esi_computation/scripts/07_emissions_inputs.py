@@ -296,7 +296,94 @@ inputs_df_imp_amount.loc[mask_still_missing, target_column] = inputs_df_imp_amou
     mask_still_missing, "product_category"
 ].map(category_means)
 
-inputs_df_imp_nitrogen = inputs_df_imp_amount.copy()
+### convert pesticide units from l_ha to kg_ha so we can more easily deal with them
+### Density values taken from product-specific pages, sources included in appendix table
+
+# Density mapping (kg/L) by product name
+DENSITY_MAP = {
+    # INSECTICIDES
+    "PALGUS":           1.0176,
+    "DENIN 19 CE":      0.9,
+    "LORSBAN 480":      1.149,
+    "ARRIVO 200 CE":    0.9413,
+    "CIPERMETRINA":     0.9413,
+    "KARATE ZEON 5CS":  1.057,
+    "ENGEO":            1.119,
+    "CORAGEN 20 SC":    1.09,
+    "AMPLIGO":          1.08,
+
+    # FUNGICIDES
+    "FOLICUR 250 EW":               0.97,
+    "HEADLINE":                     1.05,
+    "CONSIST MAX":                  1.16,
+    "PRIORI XTRA":                  1.1,
+    "PRIORI EXTRA":                 1.1,
+    "QUILT":                        1.07,
+    "OPUS":                         1.05,
+    "TEBUCUR":                      0.97,
+
+    # HERBICIDES
+    "PARAQUAT 200":     1.08,
+    "GRAMOXONE":        1.073,
+    "2,4-D AMINA 720":  1.2,
+    "HIERBAMINA":       1.17,
+    "GLIFOSATO 360 SA": 1.165,
+    "FAENA":            1.25,
+    "FINALE":           1.11,
+    "GRAMOCIL":         1.088,
+    "LAUDIS":           1.22,
+    "ESTERON 47M":      1.025,
+    "PRIMAGRAM GOLD":   1.1,
+}
+
+# Generic (category-level) fallback densities (average for the category of all values gathered from product-specific sources)
+GENERIC_DENSITY = {
+    "INSECTICIDE": 1.033,
+    "FUNGICIDE":   1.053,
+    "HERBICIDE":   1.151,
+}
+
+RELEVANT_CATEGORIES = set(GENERIC_DENSITY.keys())
+
+
+def get_density(product_name, category: str) -> float:
+    """Return density for a given product name, falling back to category generic."""
+    if pd.isna(product_name):
+        return GENERIC_DENSITY.get(category)
+    return DENSITY_MAP.get(str(product_name).strip(), GENERIC_DENSITY.get(category))
+
+
+def convert_L_to_KG(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    For rows where product_category is INSECTICIDE, FUNGICIDE, or HERBICIDE
+    and units_ha == 'L_HA', multiply amount_of_product_applied and
+    amount_of_product_applied_imputed by the product-specific density (kg/L),
+    falling back to the category generic average for unknown product names.
+    """
+    df = df.copy()
+
+    mask = (
+        df["product_category"].isin(RELEVANT_CATEGORIES) &
+        (df["units_ha"] == "L_HA")
+    )
+
+    density = df.loc[mask].apply(
+        lambda row: get_density(row["product_name_applied"], row["product_category"]),
+        axis=1
+    )
+
+    df.loc[mask, "amount_of_product_applied"]         *= density.values
+    df.loc[mask, "amount_of_product_applied_imputed"] *= density.values
+    df.loc[mask, "units_ha"]                           = "KG_HA"
+
+    return df
+
+
+# --- Apply ---
+inputs_df_imp_new_units = convert_L_to_KG(inputs_df_imp_amount)
+
+### IMPUTING NITROGEN CONTENT
+inputs_df_imp_nitrogen = inputs_df_imp_new_units.copy()
 
 # Original column
 n = inputs_df_imp_nitrogen["nitrogen_n"]
