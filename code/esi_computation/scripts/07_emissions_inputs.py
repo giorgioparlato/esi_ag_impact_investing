@@ -906,7 +906,14 @@ inputs_df_imp_flags["flag_imputed_moisture_level"] = imputation_flag(
 # Flags for missing emission factors (True, False)
 missing_ef_prod = inputs_df_imp_flags["ef_synth_input_prod_kg_co2eq_unit"].isna()
 missing_ef_tran = inputs_df_imp_flags["ef_synth_input_tran_dist_kg_co2eq_kg"].isna()
-missing_ef_app = inputs_df_imp_flags["ef_synth_input_app_kg_co2eq_unit"].isna()
+
+### application EF applies primarily to fertilizers, not pesticides
+missing_ef_app = (
+    inputs_df_imp_flags["ef_synth_input_app_kg_co2eq_unit"].isna()
+    & ~inputs_df_imp_flags["product_category"].isin(
+        ["HERBICIDE", "FUNGICIDE", "INSECTICIDE"]
+    )
+)
 
 inputs_df_imp_flags["flag_missing_ef_prod"] = missing_ef_prod
 inputs_df_imp_flags["flag_missing_ef_tran"] = missing_ef_tran
