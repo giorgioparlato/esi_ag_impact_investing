@@ -463,21 +463,30 @@ inputs_df_imp_estimation_syn.loc[
     mask_fert_default, "ef_synth_input_prod_kg_co2eq_unit"
 ] = 1.108
 
-mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
-    "BAYFOLAN FORTE"
+
+### BAYFOLAN SPECIFIC NITROGEN
+mask_bayfolan_l = inputs_df_imp_estimation_syn["product_name_applied"].eq(
+"BAYFOLAN FORTE"
 ) & inputs_df_imp_estimation_syn["units_ha"].eq("L_HA")
 
-inputs_df_imp_estimation_syn.loc[mask_bayfolan, "units_ha"] = "KG_HA"
+inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "units_ha"] = "KG_HA"
 
 # Assign conversion factor for Bayfolan Forte based on density to convert from L_HA to KG_HA
-# Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/producto-ficha-tecnica/Bayfolan-Forte-Ficha-tecnica.pdf
-inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] = (
-    inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] * 1.22
+# Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/product-msds/BAYFOLAN-FORTE-Hoja-de-seguridad-2024.pdf
+
+inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] = (
+inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] * 1.22
 )
 
-# Assign nitrogen content percentage for Bayfolan Forte
+# Assign nitrogen content percentage for all Bayfolan Forte in KG_HA
 # Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/producto-ficha-tecnica/Bayfolan-Forte-Ficha-tecnica.pdf
-inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n "] = 11.47
+
+mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
+    "BAYFOLAN FORTE"
+    ) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
+
+inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n"] = 11.47
+###
 
 # Compute emissions from synthetic input production
 inputs_df_imp_estimation_syn["synth_input_prod_t_co2eq_ha"] = (
