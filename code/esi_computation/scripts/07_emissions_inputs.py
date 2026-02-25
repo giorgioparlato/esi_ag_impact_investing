@@ -671,11 +671,11 @@ inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] 
 mask_n_inputs = (
     mask_synth
     & inputs_df_imp_estimation_syn["product_category"].isin(
-        ["FERTILIZER", "INSECTICIDE", "FUNGICIDE", "HERBICIDE", "FOLIAR FERTILIZER"]
+        ["FERTILIZER", "INSECTICIDE", "FUNGICIDE", "HERBICIDE", "FOLIAR FERTILIZER", "BIOFERTILIZER"]
     )
     & inputs_df_imp_estimation_syn["product_name_applied"].ne("UREA")
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
-    & (inputs_df_imp_estimation_syn["nitrogen_n"] > 0)
+    & (inputs_df_imp_estimation_syn["nitrogen_n"] >= 0)
 )
 
 # Source: compiled from equation 20 in reference
