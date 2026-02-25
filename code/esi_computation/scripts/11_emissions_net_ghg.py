@@ -133,6 +133,9 @@ net_ghg_emissions_conditions = [
     df.flag_missing_emissions_syn_app.str.contains(
         r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
     ),
+    df.flag_imputed_amount.str.contains(
+        r"\bREPORTED ONLY\b", na=False, regex=True)
+    ,
     ~df.flag_missing_emissions_org_app.isin(
         ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
     )
@@ -155,6 +158,7 @@ net_ghg_emissions_choices = [
     np.nan,
     np.nan,
     # Choices for agricultural inputs
+    np.nan,
     np.nan,
     np.nan,
     np.nan,
