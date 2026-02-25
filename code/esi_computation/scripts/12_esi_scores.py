@@ -45,13 +45,13 @@ SELECT
     table_01_reference.practice_id, 
     table_01_reference.year,
     table_01_reference.practices_type,
+    table_01_reference.hydric_regime,
 
     table_02_reference_enriched.luc_metric_scaled,
     table_02_reference_enriched.ro_metric_scaled,
     table_02_reference_enriched.cc_metric_rate_scaled,
 
     table_03_agronomic_features.area_km2,
-    table_05_water_features.hydric_regime,
     table_05_water_features.water_cons_hyb_gb_poisson_dam3,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
     table_11_emissions_net_ghg.net_ghg_emissions_nofuel_tco2eq,
