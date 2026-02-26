@@ -551,7 +551,7 @@ inputs_df_imp_estimation_syn.loc[
 ] = 1.108
 
 
-### BAYFOLAN SPECIFIC NITROGEN
+# Bayfolan specific nitrogen
 mask_bayfolan_l = inputs_df_imp_estimation_syn["product_name_applied"].eq(
 "BAYFOLAN FORTE"
 ) & inputs_df_imp_estimation_syn["units_ha"].eq("L_HA")
