@@ -100,7 +100,7 @@ WATER_MANAGEMENT_VARS = [
 
 WATER_CONSUMPTION_VARS = [
     "total_water_consumption_per_irrigation_lt",
-    "water_hybrid_ML_lt",
+    "water_hybrid_ml_lt",
 ]
 
 # Emission factors for irrigation equipment and application (precalculated)
@@ -234,9 +234,9 @@ water_df_efficiency["irr_efficiency_param"] = water_df_efficiency[
 water_df_gbflag = water_df_efficiency.copy()
 
 conditions_gb_method = [
-    water_df_gbflag["water_hybrid_ML_lt"]
+    water_df_gbflag["water_hybrid_ml_lt"]
     == water_df_gbflag["total_water_consumption_per_irrigation_lt"],
-    water_df_gbflag["water_hybrid_ML_lt"]
+    water_df_gbflag["water_hybrid_ml_lt"]
     != water_df_gbflag["total_water_consumption_per_irrigation_lt"],
 ]
 
@@ -283,8 +283,8 @@ water_df_agg = (
             "total_water_consumption_per_irrigation_lt",
             lambda x: x.sum(min_count=1) if x.notna().all() else np.nan,
         ),
-        water_hybrid_ML_lt=(
-            "water_hybrid_ML_lt",
+        water_hybrid_ml_lt=(
+            "water_hybrid_ml_lt",
             lambda x: x.sum(min_count=1) if x.notna().all() else np.nan,
         ),
         flag_est_method_gb=("flag_est_method_gb", imputation_status),
@@ -413,12 +413,12 @@ water_df_metrics["flag_est_method_cost"] = np.select(
 
 # Create a new column using the gradient boosting estimates
 water_df_metrics["water_cons_hyb_gb_poisson_m3_ha"] = (
-    water_df_metrics["water_hybrid_ML_lt"] * 10**-3
+    water_df_metrics["water_hybrid_ml_lt"] * 10**-3
 )
 
 # Create a new column using the gradient boosting estimates, adjusted for irrigation efficiency
 water_df_metrics["water_cons_hyb_gb_poisson_adj_m3_ha"] = (
-    water_df_metrics["water_hybrid_ML_lt"]
+    water_df_metrics["water_hybrid_ml_lt"]
     * 10**-3
     * water_df_metrics["irr_efficiency_param"]
 )
