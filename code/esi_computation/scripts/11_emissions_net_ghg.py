@@ -51,7 +51,8 @@ SELECT
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_prod,
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_tran,
     table_07_emissions_ag_inputs.flag_missing_emissions_org_app,
-
+    table_07_emissions_ag_inputs.flag_imputed_amount,
+    
     table_07_emissions_ag_inputs.synth_input_prod_t_co2eq,
     table_07_emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
     table_07_emissions_ag_inputs.synth_input_app_t_co2eq,
