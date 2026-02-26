@@ -134,7 +134,7 @@ net_ghg_emissions_conditions = [
     df.flag_missing_emissions_syn_app.str.contains(
         r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
     ),
-    df.flag_imputed_amount.str.contains(
+    ~df.flag_imputed_amount.str.contains(
         r"\bREPORTED ONLY\b", na=False, regex=True)
     ,
     ~df.flag_missing_emissions_org_app.isin(
