@@ -379,7 +379,7 @@ def convert_L_to_KG(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# --- Apply ---
+# Apply
 inputs_df_imp_new_units = convert_L_to_KG(inputs_df_imp_amount)
 
 ### IMPUTING NITROGEN CONTENT
