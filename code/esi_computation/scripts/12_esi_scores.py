@@ -52,7 +52,7 @@ SELECT
     table_02_reference_enriched.cc_metric_rate_scaled,
 
     table_03_agronomic_features.area_km2,
-    table_05_water_features.water_cons_hyb_ML_dam3,
+    table_05_water_features.water_cons_hyb_ml_dam3,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
     table_11_emissions_net_ghg.net_ghg_emissions_fuel_tco2eq,
     table_04_economic_features.total_revenue_mxn
@@ -83,12 +83,12 @@ df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
 water_conditions = [
-    df_scores.water_cons_hyb_ML_dam3.notna()
+    df_scores.water_cons_hyb_ml_dam3.notna()
     & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
 ]
 water_choices = [
-    df_scores.water_cons_hyb_ML_dam3 * df_scores.ro_metric_scaled,
+    df_scores.water_cons_hyb_ml_dam3 * df_scores.ro_metric_scaled,
     0,
 ]
 df_scores["esi_water"] = np.select(water_conditions, water_choices, default=np.nan)
