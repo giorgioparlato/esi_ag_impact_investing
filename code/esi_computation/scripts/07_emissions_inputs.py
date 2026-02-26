@@ -297,7 +297,7 @@ inputs_df_imp_amount.loc[mask_still_missing, target_column] = inputs_df_imp_amou
 ].map(category_means)
 
 # Convert pesticide units from l_ha to kg_ha so we can more easily deal with them
-### Density values taken from product-specific pages, sources included in appendix table
+# Density values taken from product-specific pages, sources included in appendix table
 
 # Density mapping (kg/L) by product name
 DENSITY_MAP = {
