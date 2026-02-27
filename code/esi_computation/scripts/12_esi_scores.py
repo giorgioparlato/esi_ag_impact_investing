@@ -45,16 +45,16 @@ SELECT
     table_01_reference.practice_id, 
     table_01_reference.year,
     table_01_reference.practices_type,
+    table_01_reference.hydric_regime,
 
     table_02_reference_enriched.luc_metric_scaled,
     table_02_reference_enriched.ro_metric_scaled,
     table_02_reference_enriched.cc_metric_rate_scaled,
 
     table_03_agronomic_features.area_km2,
-    table_05_water_features.hydric_regime,
-    table_05_water_features.water_cons_hyb_gb_poisson_dam3,
+    table_05_water_features.water_cons_hyb_ml_dam3,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
-    table_11_emissions_net_ghg.net_ghg_emissions_nofuel_tco2eq,
+    table_11_emissions_net_ghg.net_ghg_emissions_fuel_tco2eq,
     table_04_economic_features.total_revenue_mxn
 
 FROM table_01_reference
@@ -83,12 +83,12 @@ df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
 water_conditions = [
-    df_scores.water_cons_hyb_gb_poisson_dam3.notna()
+    df_scores.water_cons_hyb_ml_dam3.notna()
     & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
 ]
 water_choices = [
-    df_scores.water_cons_hyb_gb_poisson_dam3 * df_scores.ro_metric_scaled,
+    df_scores.water_cons_hyb_ml_dam3 * df_scores.ro_metric_scaled,
     0,
 ]
 df_scores["esi_water"] = np.select(water_conditions, water_choices, default=np.nan)
@@ -99,8 +99,8 @@ df_scores["esi_climate"] = (
 )
 
 # Climate ESI scores
-df_scores["esi_climate_nofuel"] = (
-    df_scores["net_ghg_emissions_nofuel_tco2eq"] * df_scores["cc_metric_rate_scaled"]
+df_scores["esi_climate_fuel"] = (
+    df_scores["net_ghg_emissions_fuel_tco2eq"] * df_scores["cc_metric_rate_scaled"]
 )
 
 
@@ -109,8 +109,8 @@ df_scores["esi_total"] = df_scores[["esi_land", "esi_water", "esi_climate"]].sum
     axis=1, skipna=False, min_count=1
 )
 
-df_scores["esi_total_nofuel"] = df_scores[
-    ["esi_land", "esi_water", "esi_climate_nofuel"]
+df_scores["esi_total_fuel"] = df_scores[
+    ["esi_land", "esi_water", "esi_climate_fuel"]
 ].sum(axis=1, skipna=False, min_count=1)
 
 
@@ -121,11 +121,11 @@ def compute_esi_intensity_vars(df):
     """
     numerators = {
         "total": "esi_total",
-        "total_nofuel": "esi_total_nofuel",
+        "total_fuel": "esi_total_fuel",
         "land": "esi_land",
         "water": "esi_water",
         "climate": "esi_climate",
-        "climate_nofuel": "esi_climate_nofuel",
+        "climate_fuel": "esi_climate_fuel",
     }
 
     denominators = {"area": "area_km2", "revenue": "total_revenue_mxn"}

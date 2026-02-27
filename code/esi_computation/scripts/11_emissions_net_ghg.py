@@ -51,7 +51,8 @@ SELECT
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_prod,
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_tran,
     table_07_emissions_ag_inputs.flag_missing_emissions_org_app,
-
+    table_07_emissions_ag_inputs.flag_imputed_amount,
+    
     table_07_emissions_ag_inputs.synth_input_prod_t_co2eq,
     table_07_emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
     table_07_emissions_ag_inputs.synth_input_app_t_co2eq,
@@ -133,6 +134,9 @@ net_ghg_emissions_conditions = [
     df.flag_missing_emissions_syn_app.str.contains(
         r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
     ),
+    ~df.flag_imputed_amount.str.contains(
+        r"\bREPORTED ONLY\b", na=False, regex=True)
+    ,
     ~df.flag_missing_emissions_org_app.isin(
         ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
     )
@@ -159,6 +163,7 @@ net_ghg_emissions_choices = [
     np.nan,
     np.nan,
     np.nan,
+    np.nan,
     # Choices for crop residues
     np.nan,
     # Choices for SOC
@@ -167,25 +172,24 @@ net_ghg_emissions_choices = [
     np.nan,
 ]
 
-# Compute net GHG emissions
-df["net_ghg_emissions_tco2eq"] = np.select(
-    net_ghg_emissions_conditions,
-    net_ghg_emissions_choices,
-    default=net_ghg_emissions_formula,
+mask_full_invalid = np.logical_or.reduce(net_ghg_emissions_conditions)
+
+mask_nofuel_invalid = np.logical_or.reduce(
+    net_ghg_emissions_conditions[1:]  # drop fuel condition
 )
 
-# Compute net GHG emissions excluding fuel consumption
-df["net_ghg_emissions_nofuel_tco2eq"] = np.select(
-    net_ghg_emissions_conditions,
-    net_ghg_emissions_choices,
-    default=net_ghg_emissions_formula - df.fuel_cons_t_co2eq.fillna(0),
+df["net_ghg_emissions_fuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_invalid)
+
+df["net_ghg_emissions_tco2eq"] = (
+    (net_ghg_emissions_formula - df.fuel_cons_t_co2eq.fillna(0))
+    .mask(mask_nofuel_invalid)
 )
+
 
 # Per hectare net GHG emissions
-df["net_ghg_emissions_tco2eq_ha"] = df.net_ghg_emissions_tco2eq / df.area_ha
-df["net_ghg_emissions_nofuel_tco2eq_ha"] = (
-    df.net_ghg_emissions_nofuel_tco2eq / df.area_ha
-)
+df["net_ghg_emissions_tco2eq"] = df.net_ghg_emissions_tco2eq / df.area_ha
+df["net_ghg_emissions_fuel_tco2eq"] = (
+    df.net_ghg_emissions_fuel_tco2eq / df.area_ha)
 
 # -----------------------------------------------------------------------------
 # Export data

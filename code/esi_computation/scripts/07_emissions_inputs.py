@@ -296,7 +296,94 @@ inputs_df_imp_amount.loc[mask_still_missing, target_column] = inputs_df_imp_amou
     mask_still_missing, "product_category"
 ].map(category_means)
 
-inputs_df_imp_nitrogen = inputs_df_imp_amount.copy()
+# Convert pesticide units from l_ha to kg_ha so we can more easily deal with them
+# Density values taken from product-specific pages, sources included in appendix table
+
+# Density mapping (kg/L) by product name
+DENSITY_MAP = {
+    # INSECTICIDES
+    "PALGUS":           1.0176,
+    "DENIN 19 CE":      0.9,
+    "LORSBAN 480":      1.149,
+    "ARRIVO 200 CE":    0.9413,
+    "CIPERMETRINA":     0.9413,
+    "KARATE ZEON 5CS":  1.057,
+    "ENGEO":            1.119,
+    "CORAGEN 20 SC":    1.09,
+    "AMPLIGO":          1.08,
+
+    # FUNGICIDES
+    "FOLICUR 250 EW":               0.97,
+    "HEADLINE":                     1.05,
+    "CONSIST MAX":                  1.16,
+    "PRIORI XTRA":                  1.1,
+    "PRIORI EXTRA":                 1.1,
+    "QUILT":                        1.07,
+    "OPUS":                         1.05,
+    "TEBUCUR":                      0.97,
+
+    # HERBICIDES
+    "PARAQUAT 200":     1.08,
+    "GRAMOXONE":        1.073,
+    "2,4-D AMINA 720":  1.2,
+    "HIERBAMINA":       1.17,
+    "GLIFOSATO 360 SA": 1.165,
+    "FAENA":            1.25,
+    "FINALE":           1.11,
+    "GRAMOCIL":         1.088,
+    "LAUDIS":           1.22,
+    "ESTERON 47M":      1.025,
+    "PRIMAGRAM GOLD":   1.1,
+}
+
+# Generic (category-level) fallback densities (average for the category of all values gathered from product-specific sources)
+GENERIC_DENSITY = {
+    "INSECTICIDE": 1.033,
+    "FUNGICIDE":   1.053,
+    "HERBICIDE":   1.151,
+}
+
+RELEVANT_CATEGORIES = set(GENERIC_DENSITY.keys())
+
+
+def get_density(product_name, category: str) -> float:
+    """Return density for a given product name, falling back to category generic."""
+    if pd.isna(product_name):
+        return GENERIC_DENSITY.get(category)
+    return DENSITY_MAP.get(str(product_name).strip(), GENERIC_DENSITY.get(category))
+
+
+def convert_L_to_KG(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    For rows where product_category is INSECTICIDE, FUNGICIDE, or HERBICIDE
+    and units_ha == 'L_HA', multiply amount_of_product_applied and
+    amount_of_product_applied_imputed by the product-specific density (kg/L),
+    falling back to the category generic average for unknown product names.
+    """
+    df = df.copy()
+
+    mask = (
+        df["product_category"].isin(RELEVANT_CATEGORIES) &
+        (df["units_ha"] == "L_HA")
+    )
+
+    density = df.loc[mask].apply(
+        lambda row: get_density(row["product_name_applied"], row["product_category"]),
+        axis=1
+    )
+
+    df.loc[mask, "amount_of_product_applied"]         *= density.values
+    df.loc[mask, "amount_of_product_applied_imputed"] *= density.values
+    df.loc[mask, "units_ha"]                           = "KG_HA"
+
+    return df
+
+
+# Apply
+inputs_df_imp_new_units = convert_L_to_KG(inputs_df_imp_amount)
+
+# Imputing nitrogen content
+inputs_df_imp_nitrogen = inputs_df_imp_new_units.copy()
 
 # Original column
 n = inputs_df_imp_nitrogen["nitrogen_n"]
@@ -463,21 +550,30 @@ inputs_df_imp_estimation_syn.loc[
     mask_fert_default, "ef_synth_input_prod_kg_co2eq_unit"
 ] = 1.108
 
-mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
-    "BAYFOLAN FORTE"
+
+# Bayfolan specific nitrogen
+mask_bayfolan_l = inputs_df_imp_estimation_syn["product_name_applied"].eq(
+"BAYFOLAN FORTE"
 ) & inputs_df_imp_estimation_syn["units_ha"].eq("L_HA")
 
-inputs_df_imp_estimation_syn.loc[mask_bayfolan, "units_ha"] = "KG_HA"
+inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "units_ha"] = "KG_HA"
 
 # Assign conversion factor for Bayfolan Forte based on density to convert from L_HA to KG_HA
-# Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/producto-ficha-tecnica/Bayfolan-Forte-Ficha-tecnica.pdf
-inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] = (
-    inputs_df_imp_estimation_syn.loc[mask_bayfolan, "amount_of_product_applied"] * 1.22
+# Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/product-msds/BAYFOLAN-FORTE-Hoja-de-seguridad-2024.pdf
+
+inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] = (
+inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] * 1.22
 )
 
-# Assign nitrogen content percentage for Bayfolan Forte
+# Assign nitrogen content percentage for all Bayfolan Forte in KG_HA
 # Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/producto-ficha-tecnica/Bayfolan-Forte-Ficha-tecnica.pdf
-inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n "] = 11.47
+
+mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
+    "BAYFOLAN FORTE"
+    ) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
+
+inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n"] = 11.47
+###
 
 # Compute emissions from synthetic input production
 inputs_df_imp_estimation_syn["synth_input_prod_t_co2eq_ha"] = (
@@ -575,11 +671,11 @@ inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] 
 mask_n_inputs = (
     mask_synth
     & inputs_df_imp_estimation_syn["product_category"].isin(
-        ["FERTILIZER", "INSECTICIDE", "FUNGICIDE", "HERBICIDE", "FOLIAR FERTILIZER"]
+        ["FERTILIZER", "INSECTICIDE", "FUNGICIDE", "HERBICIDE", "FOLIAR FERTILIZER", "BIOFERTILIZER"]
     )
     & inputs_df_imp_estimation_syn["product_name_applied"].ne("UREA")
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
-    & (inputs_df_imp_estimation_syn["nitrogen_n"] > 0)
+    & (inputs_df_imp_estimation_syn["nitrogen_n"] >= 0)
 )
 
 # Source: compiled from equation 20 in reference
@@ -810,7 +906,14 @@ inputs_df_imp_flags["flag_imputed_moisture_level"] = imputation_flag(
 # Flags for missing emission factors (True, False)
 missing_ef_prod = inputs_df_imp_flags["ef_synth_input_prod_kg_co2eq_unit"].isna()
 missing_ef_tran = inputs_df_imp_flags["ef_synth_input_tran_dist_kg_co2eq_kg"].isna()
-missing_ef_app = inputs_df_imp_flags["ef_synth_input_app_kg_co2eq_unit"].isna()
+
+# Application EF applies primarily to fertilizers, not pesticides
+missing_ef_app = (
+    inputs_df_imp_flags["ef_synth_input_app_kg_co2eq_unit"].isna()
+    & ~inputs_df_imp_flags["product_category"].isin(
+        ["HERBICIDE", "FUNGICIDE", "INSECTICIDE"]
+    )
+)
 
 inputs_df_imp_flags["flag_missing_ef_prod"] = missing_ef_prod
 inputs_df_imp_flags["flag_missing_ef_tran"] = missing_ef_tran
