@@ -907,7 +907,7 @@ inputs_df_imp_flags["flag_imputed_moisture_level"] = imputation_flag(
 missing_ef_prod = inputs_df_imp_flags["ef_synth_input_prod_kg_co2eq_unit"].isna()
 missing_ef_tran = inputs_df_imp_flags["ef_synth_input_tran_dist_kg_co2eq_kg"].isna()
 
-### application EF applies primarily to fertilizers, not pesticides
+# Application EF applies primarily to fertilizers, not pesticides
 missing_ef_app = (
     inputs_df_imp_flags["ef_synth_input_app_kg_co2eq_unit"].isna()
     & ~inputs_df_imp_flags["product_category"].isin(
