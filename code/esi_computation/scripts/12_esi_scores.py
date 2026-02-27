@@ -83,8 +83,7 @@ df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
 water_conditions = [
-    df_scores.water_cons_hyb_ml_dam3.notna()
-    & df_scores.ro_metric_scaled.notna(),
+    df_scores.water_cons_hyb_ml_dam3.notna() & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
 ]
 water_choices = [
