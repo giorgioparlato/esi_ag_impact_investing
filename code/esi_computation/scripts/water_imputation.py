@@ -324,7 +324,7 @@ irrigation_df_impute_2['soil_type'] = soil_type
 irrigation_df_impute_2['soil_type'] = irrigation_df_impute_2['soil_type'].astype('category')
 
 # Sample raster values at those point locations
-with rasterio.open(PATH_CLIMATE_ZONES) as climate_zone_raster:
+with rasterio.open(PATH_CLIMATE_ZONES / "CLIMATE_ZONE.rst") as climate_zone_raster:
     values = list(climate_zone_raster.sample(coords))
     # Flatten the result if it's single-band
     values = [val[0] for val in values]
