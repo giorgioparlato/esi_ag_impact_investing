@@ -109,7 +109,7 @@ PATH_SQL_DB_EXT = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmytExt.db"
 PATH_CLIMATE_ZONES = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\climate_zones"
 
 # Path to soil classes
-# Source: WebCoverageService("https://maps.isric.org/mapserv?map=/map/wrb.map", version='1.0.0')
+# Source: https://maps.isric.org/
 PATH_SOIL_CLASS = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_classes.tif"
 
 
