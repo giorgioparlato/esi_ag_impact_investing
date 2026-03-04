@@ -100,7 +100,8 @@ PATH_EXPORT_TABLES = r'/Users/giorgioparlato/Library/CloudStorage/Box-Box/SU/1.P
 
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
-ENV_SQL_DB = r'/Users/giorgioparlato/Library/CloudStorage/Box-Box/SU/1.Projects/p - ESI_CYMMIT/CYMMIT_python_code_review/from_dario/cimmytExt.db'
+# Connection to extended SQL DB including environmental variables
+PATH_SQL_DB_EXT = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmytExt.db"
 
 # Path to climatic zones raster
 # Reference: European Soil Data Centre (ESDAC), esdac.jrc.ec.europa.eu, European Commission, Joint Research Centre
