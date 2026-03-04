@@ -386,7 +386,7 @@ irrigation_df_impute_5 = irrigation_df_impute_4.merge(
 # Merge with tariff
 irrigation_df_impute_6 = irrigation_df_impute_5.merge(water_tariffs_df, on="year", how="left")
 
-# If total_water_consumption_per_irrigation_lt is zero, and water_consumption_lt is not NA, then set adj_total_water_consumption_per_irrigation_lt to water_consumption_lt*area_ha*(average_irrigation_time_hr_ha OR irrigation_time_hr_ha (whichever not NA)) - if total_water_consumption_per_irrigation_lt is zero, and water_consumption_lt is NA, set total_water_consumption_per_irrigation_lt to NA
+# Calculate adjusted total water consumption per irrigation event, in liters per hectare
 irrigation_df_impute_6["adj_total_water_consumption_per_irrigation_lt_ha"] = np.where(
     (irrigation_df_impute_6["total_water_consumption_per_irrigation_lt"] == 0)
     & (irrigation_df_impute_6["water_consumption_lt"].notna()),
