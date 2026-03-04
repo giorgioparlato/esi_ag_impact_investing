@@ -69,7 +69,8 @@ SELECT
     table_05_water_features.irr_app_ml_tco2eq,
 
     table_09_emissions_soc.soc_delta_t_co2eq,
-    table_10_emissions_albedo.albedo_emissions_tco2eq_ha
+    table_10_emissions_albedo.albedo_emissions_tco2eq_ha,
+    table_10_emissions_albedo.albedo_emissions_tco2eq
 
 FROM table_01_reference
 
@@ -180,9 +181,6 @@ df["net_ghg_emissions_tco2eq"] = (
 # Per hectare net GHG emissions
 df["net_ghg_emissions_tco2eq_ha"] = df.net_ghg_emissions_tco2eq / df.area_ha
 df["net_ghg_emissions_wfuel_tco2eq_ha"] = df.net_ghg_emissions_wfuel_tco2eq / df.area_ha
-
-# Per hectare albedo effect emissions (isolated from net GHG emissions)
-df["albedo_effect_tco2eq_ha"] = df.albedo_emissions_tco2eq_ha
 
 # -----------------------------------------------------------------------------
 # Export data
