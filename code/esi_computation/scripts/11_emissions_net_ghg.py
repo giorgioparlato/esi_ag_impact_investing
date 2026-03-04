@@ -180,7 +180,7 @@ df["net_ghg_emissions_fuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_i
 
 df["net_ghg_emissions_tco2eq"] = (
     net_ghg_emissions_formula - df.fuel_cons_t_co2eq.fillna(0)
-).mask(mask_nofuel_invalid)
+.mask(mask_nofuel_invalid)
 
 
 # Per hectare net GHG emissions
