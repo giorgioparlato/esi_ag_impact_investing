@@ -110,7 +110,7 @@ PATH_CLIMATE_ZONES = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\climat
 
 # Path to soil classes
 # Source: WebCoverageService("https://maps.isric.org/mapserv?map=/map/wrb.map", version='1.0.0')
-# PATH_SOIL_CLASS = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_classes.tif"
+PATH_SOIL_CLASS = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_classes.tif"
 
 
 # -----------------------------------------------------------------------------
