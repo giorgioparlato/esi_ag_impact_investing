@@ -65,8 +65,8 @@ SELECT
     table_06_emissions_fuel.fuel_cons_status,
     table_06_emissions_fuel.fuel_cons_t_co2eq,
     table_05_water_features.irrigation_types,
-    table_05_water_features.irr_equip_gb_tco2eq,
-    table_05_water_features.irr_app_gb_tco2eq,
+    table_05_water_features.irr_equip_ml_tco2eq,
+    table_05_water_features.irr_app_ml_tco2eq,
 
     table_09_emissions_soc.soc_delta_t_co2eq,
     table_10_emissions_albedo.albedo_emissions_tco2eq
@@ -97,8 +97,8 @@ df = pd.read_sql_query(QUERY, conn)
 # GHG fluxes to include
 ghg_fluxes = [
     "fuel_cons_t_co2eq",
-    "irr_equip_gb_tco2eq",
-    "irr_app_gb_tco2eq",
+    "irr_equip_ml_tco2eq",
+    "irr_app_ml_tco2eq",
     "synth_input_prod_t_co2eq",
     "synth_input_tran_dist_t_co2eq",
     "synth_input_app_t_co2eq",
@@ -121,9 +121,9 @@ net_ghg_emissions_conditions = [
     df.fuel_cons_status.str.contains("UNKNOWN|MISSING", na=False),
     # Exceptions for irrigation equipment and application
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_equip_gb_tco2eq.isna(),
+    & df.irr_equip_ml_tco2eq.isna(),
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_app_gb_tco2eq.isna(),
+    & df.irr_app_ml_tco2eq.isna(),
     # Exceptions for agricultural inputs
     df.flag_missing_emissions_syn_prod.str.contains(
         r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
@@ -134,9 +134,7 @@ net_ghg_emissions_conditions = [
     df.flag_missing_emissions_syn_app.str.contains(
         r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
     ),
-    ~df.flag_imputed_amount.str.contains(
-        r"\bREPORTED ONLY\b", na=False, regex=True)
-    ,
+    ~df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True),
     ~df.flag_missing_emissions_org_app.isin(
         ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
     )
@@ -180,16 +178,14 @@ mask_nofuel_invalid = np.logical_or.reduce(
 
 df["net_ghg_emissions_fuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_invalid)
 
-df["net_ghg_emissions_tco2eq"] = (
+dfdf["net_ghg_emissions_tco2eq"] = (
     (net_ghg_emissions_formula - df.fuel_cons_t_co2eq.fillna(0))
     .mask(mask_nofuel_invalid)
 )
 
-
 # Per hectare net GHG emissions
 df["net_ghg_emissions_tco2eq"] = df.net_ghg_emissions_tco2eq / df.area_ha
-df["net_ghg_emissions_fuel_tco2eq"] = (
-    df.net_ghg_emissions_fuel_tco2eq / df.area_ha)
+df["net_ghg_emissions_fuel_tco2eq"] = df.net_ghg_emissions_fuel_tco2eq / df.area_ha
 
 # -----------------------------------------------------------------------------
 # Export data

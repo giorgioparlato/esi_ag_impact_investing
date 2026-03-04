@@ -43,7 +43,7 @@ PATH_DATA = r"esi_cimmyt"
 
 # Dataset with gradient boosting imputed irrigation data
 PATH_WATER_GRADIENT_BOOSTING = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\irrigation_df_GB_imputed.feather"
+    PATH_HOME / PATH_DATA / r"data\processed\tables\irrigation_df_ml_imputed.feather"
 )
 
 # Path to water tariffs
@@ -411,13 +411,13 @@ water_df_metrics["flag_est_method_cost"] = np.select(
     conditions_cost_method, choices_cost_method, default="MISSING"
 )
 
-# Create a new column using the gradient boosting estimates
-water_df_metrics["water_cons_hyb_gb_poisson_m3_ha"] = (
+# Create a new column using the ML estimates
+water_df_metrics["water_cons_hyb_ml_m3_ha"] = (
     water_df_metrics["water_hybrid_ml_lt"] * 10**-3
 )
 
-# Create a new column using the gradient boosting estimates, adjusted for irrigation efficiency
-water_df_metrics["water_cons_hyb_gb_poisson_adj_m3_ha"] = (
+# Create a new column using the ML estimates, adjusted for irrigation efficiency
+water_df_metrics["water_cons_hyb_ml_adj_m3_ha"] = (
     water_df_metrics["water_hybrid_ml_lt"]
     * 10**-3
     * water_df_metrics["irr_efficiency_param"]
@@ -455,12 +455,12 @@ water_df_totals["water_cons_hyb_adj_m3"] = (
     water_df_totals.water_cons_hyb_adj_m3_ha * water_df_totals.area_ha
 )
 
-water_df_totals["water_cons_hyb_gb_poisson_m3"] = (
-    water_df_totals.water_cons_hyb_gb_poisson_m3_ha * water_df_totals.area_ha
+water_df_totals["water_cons_hyb_ml_m3"] = (
+    water_df_totals.water_cons_hyb_ml_m3_ha * water_df_totals.area_ha
 )
 
-water_df_totals["water_cons_hyb_gb_poisson_adj_m3"] = (
-    water_df_totals.water_cons_hyb_gb_poisson_adj_m3_ha * water_df_totals.area_ha
+water_df_totals["water_cons_hyb_ml_adj_m3"] = (
+    water_df_totals.water_cons_hyb_ml_adj_m3_ha * water_df_totals.area_ha
 )
 
 # Convert to cubic decameters for calculation of water ESI
@@ -468,11 +468,11 @@ water_df_totals["water_cons_hyb_dam3"] = water_df_totals.water_cons_hyb_m3 * 10*
 water_df_totals["water_cons_hyb_adj_dam3"] = (
     water_df_totals.water_cons_hyb_adj_m3 * 10**-3
 )
-water_df_totals["water_cons_hyb_gb_poisson_dam3"] = (
-    water_df_totals.water_cons_hyb_gb_poisson_m3 * 10**-3
+water_df_totals["water_cons_hyb_ml_dam3"] = (
+    water_df_totals.water_cons_hyb_ml_m3 * 10**-3
 )
-water_df_totals["water_cons_hyb_gb_poisson_adj_dam3"] = (
-    water_df_totals.water_cons_hyb_gb_poisson_adj_m3 * 10**-3
+water_df_totals["water_cons_hyb_ml_adj_dam3"] = (
+    water_df_totals.water_cons_hyb_ml_adj_m3 * 10**-3
 )
 
 # Emissions based on non-adjusted hybrid water consumption estimates (cost method), per hectare basis
@@ -490,16 +490,16 @@ water_df_emissions["irr_equip_tco2eq_ha"] = np.where(
     np.nan,
 )
 
-# Emissions based on non-adjusted hybrid water consumption estimates (GB method), per hectare basis
-water_df_emissions["irr_app_gb_tco2eq_ha"] = np.where(
+# Emissions based on non-adjusted hybrid water consumption estimates (ML method), per hectare basis
+water_df_emissions["irr_app_ml_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_m3_ha"] * EF_IRR_APP,
+    water_df_emissions["water_cons_hyb_ml_m3_ha"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_gb_tco2eq_ha"] = np.where(
+water_df_emissions["irr_equip_ml_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_m3_ha"] * EF_IRR_EQUIP,
+    water_df_emissions["water_cons_hyb_ml_m3_ha"] * EF_IRR_EQUIP,
     np.nan,
 )
 
@@ -516,16 +516,16 @@ water_df_emissions["irr_equip_adj_tco2eq_ha"] = np.where(
     np.nan,
 )
 
-# Emissions based on adjusted hybrid water consumption estimates (GB method), per hectare basis
-water_df_emissions["irr_app_gb_adj_tco2eq_ha"] = np.where(
+# Emissions based on adjusted hybrid water consumption estimates (ML method), per hectare basis
+water_df_emissions["irr_app_ml_adj_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_adj_m3_ha"] * EF_IRR_APP,
+    water_df_emissions["water_cons_hyb_ml_adj_m3_ha"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_gb_adj_tco2eq_ha"] = np.where(
+water_df_emissions["irr_equip_ml_adj_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_adj_m3_ha"] * EF_IRR_EQUIP,
+    water_df_emissions["water_cons_hyb_ml_adj_m3_ha"] * EF_IRR_EQUIP,
     np.nan,
 )
 
@@ -542,16 +542,16 @@ water_df_emissions["irr_equip_tco2eq"] = np.where(
     np.nan,
 )
 
-# Emissions based on non-adjusted hybrid water consumption estimates (GB method), total
-water_df_emissions["irr_app_gb_tco2eq"] = np.where(
+# Emissions based on non-adjusted hybrid water consumption estimates (ML method), total
+water_df_emissions["irr_app_ml_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_m3"] * EF_IRR_APP,
+    water_df_emissions["water_cons_hyb_ml_m3"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_gb_tco2eq"] = np.where(
+water_df_emissions["irr_equip_ml_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_m3"] * EF_IRR_EQUIP,
+    water_df_emissions["water_cons_hyb_ml_m3"] * EF_IRR_EQUIP,
     np.nan,
 )
 
@@ -568,16 +568,16 @@ water_df_emissions["irr_equip_adj_tco2eq"] = np.where(
     np.nan,
 )
 
-# Emissions based on adjusted hybrid water consumption estimates (GB method), total
-water_df_emissions["irr_app_gb_adj_tco2eq"] = np.where(
+# Emissions based on adjusted hybrid water consumption estimates (ML method), total
+water_df_emissions["irr_app_ml_adj_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_adj_m3"] * EF_IRR_APP,
+    water_df_emissions["water_cons_hyb_ml_adj_m3"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_gb_adj_tco2eq"] = np.where(
+water_df_emissions["irr_equip_ml_adj_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_gb_poisson_adj_m3"] * EF_IRR_EQUIP,
+    water_df_emissions["water_cons_hyb_ml_adj_m3"] * EF_IRR_EQUIP,
     np.nan,
 )
 
