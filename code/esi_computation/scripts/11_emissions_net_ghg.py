@@ -69,6 +69,7 @@ SELECT
     table_05_water_features.irr_app_ml_tco2eq,
 
     table_09_emissions_soc.soc_delta_t_co2eq,
+    table_10_emissions_albedo.albedo_emissions_tco2eq_ha,
     table_10_emissions_albedo.albedo_emissions_tco2eq
 
 FROM table_01_reference
@@ -106,7 +107,6 @@ ghg_fluxes = [
     "maize_residues_returned_tco2eq",
     "maize_grain_residues_burnt_tco2eq",
     "soc_delta_t_co2eq",
-    "albedo_emissions_tco2eq",
 ]
 
 # Rows must have at least 1 non-null GHG flux
@@ -145,8 +145,6 @@ net_ghg_emissions_conditions = [
     df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
     # Exceptions for SOC
     df.soc_delta_t_co2eq.isna(),
-    # Exceptions for albedo
-    df.albedo_emissions_tco2eq.isna(),
 ]
 
 # Choices for GHG emissions
@@ -166,8 +164,6 @@ net_ghg_emissions_choices = [
     np.nan,
     # Choices for SOC
     np.nan,
-    # Choices for albedo
-    np.nan,
 ]
 
 mask_full_invalid = np.logical_or.reduce(net_ghg_emissions_conditions)
@@ -176,16 +172,15 @@ mask_nofuel_invalid = np.logical_or.reduce(
     net_ghg_emissions_conditions[1:]  # drop fuel condition
 )
 
-df["net_ghg_emissions_fuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_invalid)
+df["net_ghg_emissions_wfuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_invalid)
 
-dfdf["net_ghg_emissions_tco2eq"] = (
-    (net_ghg_emissions_formula - df.fuel_cons_t_co2eq.fillna(0))
-    .mask(mask_nofuel_invalid)
-)
+df["net_ghg_emissions_tco2eq"] = (
+    net_ghg_emissions_formula - df.fuel_cons_t_co2eq.fillna(0)
+).mask(mask_nofuel_invalid)
 
 # Per hectare net GHG emissions
-df["net_ghg_emissions_tco2eq"] = df.net_ghg_emissions_tco2eq / df.area_ha
-df["net_ghg_emissions_fuel_tco2eq"] = df.net_ghg_emissions_fuel_tco2eq / df.area_ha
+df["net_ghg_emissions_tco2eq_ha"] = df.net_ghg_emissions_tco2eq / df.area_ha
+df["net_ghg_emissions_wfuel_tco2eq_ha"] = df.net_ghg_emissions_wfuel_tco2eq / df.area_ha
 
 # -----------------------------------------------------------------------------
 # Export data
