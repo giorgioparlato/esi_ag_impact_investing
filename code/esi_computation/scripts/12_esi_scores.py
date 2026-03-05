@@ -54,7 +54,8 @@ SELECT
     table_03_agronomic_features.area_km2,
     table_05_water_features.water_cons_hyb_ml_dam3,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
-    table_11_emissions_net_ghg.net_ghg_emissions_fuel_tco2eq,
+    table_11_emissions_net_ghg.net_ghg_emissions_wfuel_tco2eq,
+    table_11_emissions_net_ghg.albedo_emissions_tco2eq,
     table_04_economic_features.total_revenue_mxn
 
 FROM table_01_reference
@@ -98,18 +99,22 @@ df_scores["esi_climate"] = (
 )
 
 # Climate ESI scores
-df_scores["esi_climate_fuel"] = (
-    df_scores["net_ghg_emissions_fuel_tco2eq"] * df_scores["cc_metric_rate_scaled"]
+df_scores["esi_climate_wfuel"] = (
+    df_scores["net_ghg_emissions_wfuel_tco2eq"] * df_scores["cc_metric_rate_scaled"]
 )
 
+# Albedo ESI scores
+df_scores["esi_climate_albedo"] = (
+    df_scores["albedo_emissions_tco2eq"] * df_scores["cc_metric_rate_scaled"]
+)
 
 # Total ESI scores
-df_scores["esi_total"] = df_scores[["esi_land", "esi_water", "esi_climate"]].sum(
-    axis=1, skipna=False, min_count=1
-)
+df_scores["esi_total"] = df_scores[
+    ["esi_land", "esi_water", "esi_climate", "esi_climate_albedo"]
+].sum(axis=1, skipna=False, min_count=1)
 
-df_scores["esi_total_fuel"] = df_scores[
-    ["esi_land", "esi_water", "esi_climate_fuel"]
+df_scores["esi_total_wfuel"] = df_scores[
+    ["esi_land", "esi_water", "esi_climate_wfuel", "esi_climate_albedo"]
 ].sum(axis=1, skipna=False, min_count=1)
 
 
@@ -120,11 +125,12 @@ def compute_esi_intensity_vars(df):
     """
     numerators = {
         "total": "esi_total",
-        "total_fuel": "esi_total_fuel",
+        "total_wfuel": "esi_total_wfuel",
         "land": "esi_land",
         "water": "esi_water",
         "climate": "esi_climate",
-        "climate_fuel": "esi_climate_fuel",
+        "climate_wfuel": "esi_climate_wfuel",
+        "climate_albedo": "esi_climate_albedo",
     }
 
     denominators = {"area": "area_km2", "revenue": "total_revenue_mxn"}
