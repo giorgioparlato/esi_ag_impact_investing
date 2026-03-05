@@ -26,7 +26,6 @@ import pandas as pd
 import numpy as np
 
 
-
 # GIS
 import geopandas as gpd
 from shapely.geometry import Point
@@ -95,11 +94,12 @@ PATH_CIMMYT_MEXICO_ECONOMICS = (
 )
 SHEET_CIMMYT_MEXICO_ECONOMICS = "Data"
 
-# Export path for processed tables
-PATH_EXPORT_TABLES = r'/Users/giorgioparlato/Library/CloudStorage/Box-Box/SU/1.Projects/p - ESI_CYMMIT/CYMMIT_python_code_review/data/processed/tables'
+# Processed tables
+PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
 
 # SQL DB connection
 PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
+
 # Connection to extended SQL DB including environmental variables
 PATH_SQL_DB_EXT = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmytExt.db"
 
@@ -136,16 +136,25 @@ WATER_MANAGEMENT_VARS = [
     "irrigation_system",
     "winter_sumer_season",
     "practices_type",
-    'average_irrigation_time_hr_ha',
-    'irrigation_time_hr_ha'
+    "average_irrigation_time_hr_ha",
+    "irrigation_time_hr_ha",
 ]
 
 # Key columns from logbook
-logbook_cols = ["year", "logbook_id", "state", "practice_id", 'agroecological_hub', "conservation_agriculture"
+logbook_cols = [
+    "year",
+    "logbook_id",
+    "state",
+    "practice_id",
+    "agroecological_hub",
+    "conservation_agriculture",
 ]
 
 # Water consumption variables
-WATER_CONSUMPTION_VARS = ["total_water_consumption_per_irrigation_lt", "water_consumption_lt"]
+WATER_CONSUMPTION_VARS = [
+    "total_water_consumption_per_irrigation_lt",
+    "water_consumption_lt",
+]
 
 # ID columns in the irrigation dataset
 ID_KEYS_WATER = ["farmer_id", "plot_id", "logbook_id", "practice_id", "id_irrigation"]
@@ -172,8 +181,7 @@ water_df_raw = pd.read_excel(
     io=PATH_CIMMYT_MEXICO_WATER, sheet_name=SHEET_CIMMYT_MEXICO_WATER
 )
 
-agronomic_df = pd.read_feather(
-    PATH_AGRONOMIC_FEATURES)
+agronomic_df = pd.read_feather(PATH_AGRONOMIC_FEATURES)
 
 reference_df = pd.read_feather(PATH_REF_TABLE)
 
@@ -192,17 +200,19 @@ economics_df_raw = pd.read_excel(
 # -----------------------------------------------------------------------------
 # Clean column names
 logbook_df = logbook_df.clean_names(
-    axis='columns', # Clean the labels on the columns
-    strip_underscores=True, # Remove outer underscores from all column names 
-    case_type='lower', # Make all characters lower case
-    remove_special=True, # Preserve only letters, numbers, and underscores
-    strip_accents=True, # Remove accents 
-    preserve_original_labels=True, # Retrievable using df.original_labels
-    enforce_string=True, # Convert all column names to string type
+    axis="columns",  # Clean the labels on the columns
+    strip_underscores=True,  # Remove outer underscores from all column names
+    case_type="lower",  # Make all characters lower case
+    remove_special=True,  # Preserve only letters, numbers, and underscores
+    strip_accents=True,  # Remove accents
+    preserve_original_labels=True,  # Retrievable using df.original_labels
+    enforce_string=True,  # Convert all column names to string type
 )
 
 ### rename column innovation_conventional_practices_id to practice_id in logbook_df
-logbook_df.rename(columns={"innovation_conventional_practices_id": "practice_id"}, inplace=True)
+logbook_df.rename(
+    columns={"innovation_conventional_practices_id": "practice_id"}, inplace=True
+)
 
 # Clean column names
 water_df_clean_columns = water_df_raw.copy()
@@ -240,9 +250,9 @@ water_df_efficiency["irr_efficiency_param"] = water_df_efficiency[
 ].map(efficiency_parameters_map)
 
 
-#logbook_df['practice_id'] = logbook_df['practice_id'].astype('string')
-logbook_df['logbook_id'] = logbook_df['logbook_id'].astype('string')
-logbook_df['practice_id'] = logbook_df['practice_id'].astype('string')
+# logbook_df['practice_id'] = logbook_df['practice_id'].astype('string')
+logbook_df["logbook_id"] = logbook_df["logbook_id"].astype("string")
+logbook_df["practice_id"] = logbook_df["practice_id"].astype("string")
 logbook_df_merge = logbook_df.loc[:, logbook_cols]
 
 # Economics DF
@@ -294,34 +304,49 @@ economics_df_concat.rename(
 # Merging dataframes
 # -----------------------------------------------------------------------------
 ### merge reference_df, on=["practice_id", "logbook_id", "year"], but only adding these columns: plot_type, latitude_n, longitude_w
-reference_df = reference_df.loc[:, ["practice_id", "logbook_id", "year", "plot_type", "latitude_n", "longitude_w"]]
+reference_df = reference_df.loc[
+    :, ["practice_id", "logbook_id", "year", "plot_type", "latitude_n", "longitude_w"]
+]
 
 
 irrigation_df_impute = water_df_efficiency.merge(
-    reference_df, on=["practice_id", "logbook_id", "year"], how="left") 
+    reference_df, on=["practice_id", "logbook_id", "year"], how="left"
+)
 
 
 irrigation_df_impute_1 = irrigation_df_impute.merge(
-    logbook_df_merge, on=["logbook_id", "practice_id", "year"], how="left", indicator=True)  ##to check merge
+    logbook_df_merge,
+    on=["logbook_id", "practice_id", "year"],
+    how="left",
+    indicator=True,
+)  ##to check merge
 
 
 ## create copy of agronomic_df only with "practice_id", "year", maize_grain_yield_t_ha
 
-agronomic_df_merge_irrigation = agronomic_df.loc[:, ["practice_id", "year", "area_ha", "maize_grain_yield_t_ha"]]
+agronomic_df_merge_irrigation = agronomic_df.loc[
+    :, ["practice_id", "year", "area_ha", "maize_grain_yield_t_ha"]
+]
 
 irrigation_df_impute_2 = irrigation_df_impute_1.merge(
-    agronomic_df_merge_irrigation, on=["practice_id", "year"], how="left") # , indicator=True to check merge
+    agronomic_df_merge_irrigation, on=["practice_id", "year"], how="left"
+)  # , indicator=True to check merge
 
 # add soil type and climate code to dataset
-lon, lat = irrigation_df_impute_2['longitude_w'].values, irrigation_df_impute_2['latitude_n'].values
+lon, lat = (
+    irrigation_df_impute_2["longitude_w"].values,
+    irrigation_df_impute_2["latitude_n"].values,
+)
 coords = list(zip(lon, lat))
 
 # Use rasterio.sample for efficiency
 soil_type = [val[0] for val in soil_classes.sample(coords)]
 # Add to dataframe
 
-irrigation_df_impute_2['soil_type'] = soil_type
-irrigation_df_impute_2['soil_type'] = irrigation_df_impute_2['soil_type'].astype('category')
+irrigation_df_impute_2["soil_type"] = soil_type
+irrigation_df_impute_2["soil_type"] = irrigation_df_impute_2["soil_type"].astype(
+    "category"
+)
 
 # Sample raster values at those point locations
 with rasterio.open(PATH_CLIMATE_ZONES / "CLIMATE_ZONE.rst") as climate_zone_raster:
@@ -330,41 +355,46 @@ with rasterio.open(PATH_CLIMATE_ZONES / "CLIMATE_ZONE.rst") as climate_zone_rast
     values = [val[0] for val in values]
 
 # Assign to GeoDataFrame
-irrigation_df_impute_2['climate_code'] = values
-irrigation_df_impute_2['climate_code'] = irrigation_df_impute_2['climate_code'].astype('category')
+irrigation_df_impute_2["climate_code"] = values
+irrigation_df_impute_2["climate_code"] = irrigation_df_impute_2["climate_code"].astype(
+    "category"
+)
 
-# Merge environmental variables from ENV_SQL_DB
-conn = sqlite3.connect(ENV_SQL_DB)
+# Merge environmental variables from PATH_SQL_DB_EXT
+conn = sqlite3.connect(PATH_SQL_DB_EXT)
 query = "SELECT name FROM sqlite_master WHERE type='table';"
 tables = pd.read_sql(query, conn)
 
 env_data_query = "SELECT * FROM env_data;"
 env_data_df_full = pd.read_sql(env_data_query, conn)
 
-env_data_df = env_data_df_full.loc[:, ['logbook_id', "year", "pcp", "tmax", "tmin"]]
+env_data_df = env_data_df_full.loc[:, ["logbook_id", "year", "pcp", "tmax", "tmin"]]
 
-env_data_df['logbook_id'].dtype
-env_data_df['logbook_id'] = env_data_df['logbook_id'].astype('string')
+env_data_df["logbook_id"].dtype
+env_data_df["logbook_id"] = env_data_df["logbook_id"].astype("string")
 
 
 irrigation_df_impute_3 = irrigation_df_impute_2.merge(
-    env_data_df, on=["logbook_id", "year"], how="left") # , indicator=True to check merge
+    env_data_df, on=["logbook_id", "year"], how="left"
+)  # , indicator=True to check merge
 
 # Add our own SQL
 conn = sqlite3.connect(PATH_SQL_DB)
 soc_query = "SELECT * FROM table_09_emissions_soc;"
 soc_df_full = pd.read_sql_query(soc_query, conn)
 
-soc_df = soc_df_full.loc[:, ['logbook_id',"practice_id", "year"]]
+soc_df = soc_df_full.loc[:, ["logbook_id", "practice_id", "year"]]
 
 
-soc_df['logbook_id'].dtype
-soc_df['logbook_id'] = soc_df['logbook_id'].astype('string')
+soc_df["logbook_id"].dtype
+soc_df["logbook_id"] = soc_df["logbook_id"].astype("string")
 
 irrigation_df_impute_4 = irrigation_df_impute_3.merge(
-    soc_df, on=["logbook_id", "practice_id", "year"], how="left", 
-   # indicator=True # # to check merge
-    ) 
+    soc_df,
+    on=["logbook_id", "practice_id", "year"],
+    how="left",
+    # indicator=True # # to check merge
+)
 
 irr_cost_df = economics_df_concat[
     [
@@ -381,10 +411,12 @@ irrigation_df_impute_5 = irrigation_df_impute_4.merge(
     irr_cost_df,
     on=["logbook_id", "practice_id", "year"],
     how="left",
-#    indicator=True
+    #    indicator=True
 )
 # Merge with tariff
-irrigation_df_impute_6 = irrigation_df_impute_5.merge(water_tariffs_df, on="year", how="left")
+irrigation_df_impute_6 = irrigation_df_impute_5.merge(
+    water_tariffs_df, on="year", how="left"
+)
 
 # Calculate adjusted total water consumption per irrigation event, in liters per hectare
 irrigation_df_impute_6["adj_total_water_consumption_per_irrigation_lt_ha"] = np.where(
@@ -403,11 +435,9 @@ irrigation_df_impute_6["adj_total_water_consumption_per_irrigation_lt_ha"] = np.
 )
 
 # Introduce new variable number of irrigation events per year which counts the number of rows per logbookd id and year in irrigation_df_impute_5
-irrigation_df_impute_6["irr_events_per_year"] = (
-    irrigation_df_impute_6
-        .groupby(["practice_id", "year"])["practice_id"]
-        .transform("count")
-)
+irrigation_df_impute_6["irr_events_per_year"] = irrigation_df_impute_6.groupby(
+    ["practice_id", "year"]
+)["practice_id"].transform("count")
 
 # Set final dataset for ML
 irrigation_df_gb = irrigation_df_impute_6.copy()
@@ -422,15 +452,15 @@ irrigation_df_gb = irrigation_df_gb[
 # -----------------------------------------------------------------------------
 # Set target and features variables
 # adj_total_water_consumption_per_irrigation_lt_ha or total_water_consumption_per_irrigation_lt
-target = 'adj_total_water_consumption_per_irrigation_lt_ha'
+target = "adj_total_water_consumption_per_irrigation_lt_ha"
 
 numeric_features = [
-    'area_ha',
-    'year',
+    "area_ha",
+    "year",
     "latitude_n",
     "longitude_w",
-    'irr_efficiency_param',
-    'irrigation_cost_mxn_ha',
+    "irr_efficiency_param",
+    "irrigation_cost_mxn_ha",
     "pcp",
     "tmax",
     "tmin",
@@ -438,12 +468,12 @@ numeric_features = [
 ]
 
 categorical_features = [
-    'hydric_regime',
+    "hydric_regime",
     "plot_type",
-   "soil_type",
+    "soil_type",
     "water_source",
-    "climate_code", 
-   "state",
+    "climate_code",
+    "state",
     "winter_sumer_season",
     "agroecological_hub",
 ]
@@ -452,15 +482,15 @@ categorical_features = [
 X = irrigation_df_gb[numeric_features + categorical_features]
 y = irrigation_df_gb[target]
 
-X_categorical = X.select_dtypes(include=['object'])
+X_categorical = X.select_dtypes(include=["object"])
 
-X_numerical = X.select_dtypes(exclude=['object'])
+X_numerical = X.select_dtypes(exclude=["object"])
 
-ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
 x_categorical_ohe = pd.DataFrame(
     ohe.fit_transform(X_categorical),
     index=X.index,
-    columns=ohe.get_feature_names_out(X_categorical.columns)
+    columns=ohe.get_feature_names_out(X_categorical.columns),
 )
 
 x = pd.concat([X_numerical, x_categorical_ohe], axis=1)
@@ -474,10 +504,7 @@ y_known = y[mask_known]
 X_missing = x[mask_missing]
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X_known,
-    y_known,
-    test_size=0.2,
-    random_state=123
+    X_known, y_known, test_size=0.2, random_state=123
 )
 
 # Fit best model on all known data
@@ -487,7 +514,7 @@ final_gbr = HistGradientBoostingRegressor(
     learning_rate=0.07,
     max_iter=600,
     random_state=42,
-    min_samples_leaf = 10
+    min_samples_leaf=10,
 )
 
 final_gbr.fit(X_known, y_known)
@@ -499,7 +526,9 @@ irrigation_df_gb["water_hybrid_ml_lt"] = y_filled
 
 # adjust negative and zero values to minimum observed
 min_observed = irrigation_df_gb.loc[~mask_missing, target].min()
-irrigation_df_gb["water_hybrid_ml_lt"] = irrigation_df_gb["water_hybrid_ml_lt"].clip(lower=min_observed)
+irrigation_df_gb["water_hybrid_ml_lt"] = irrigation_df_gb["water_hybrid_ml_lt"].clip(
+    lower=min_observed
+)
 
 
 # -----------------------------------------------------------------------------
@@ -507,7 +536,7 @@ irrigation_df_gb["water_hybrid_ml_lt"] = irrigation_df_gb["water_hybrid_ml_lt"].
 # -----------------------------------------------------------------------------
 # Write as feather file
 
-irrigation_df_gb.to_feather(PATH_EXPORT_TABLES / r"irrigation_df_ml_imputed.feather")
+irrigation_df_gb.to_feather(PATH_PROCESSED_TABLES / r"irrigation_df_ml_imputed.feather")
 
 # END
 exit("Execution complete.")
