@@ -85,12 +85,14 @@ df_scores = df_in.copy()
 df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
-valid_water_source = ~df_scores.water_source.str.contains(
+valid_water_source = ~df_scores.water_sources.str.contains(
     "SUBTERRANEAN|WASTEWATER", case=False, na=False
 )
 
 water_conditions = [
-    valid_water_source & df_scores.water_cons_hyb_ml_dam3.notna() & df_scores.ro_metric_scaled.notna(),
+    valid_water_source
+    & df_scores.water_cons_hyb_ml_dam3.notna()
+    & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
 ]
 
@@ -125,8 +127,17 @@ df_scores["esi_total_wfuel"] = df_scores[
 ].sum(axis=1, skipna=False, min_count=1)
 
 # Excluding farms that cultivate crops other than MAIZE
-esi_cols = ["esi_total_wfuel", "esi_total", "esi_climate_albedo", "esi_climate_wfuel", "esi_climate", "esi_water", "esi_land"]
+esi_cols = [
+    "esi_total_wfuel",
+    "esi_total",
+    "esi_climate_albedo",
+    "esi_climate_wfuel",
+    "esi_climate",
+    "esi_water",
+    "esi_land",
+]
 df_scores.loc[df_scores["crops"] != "MAIZE", esi_cols] = np.nan
+
 
 # ESI intensity variables
 def compute_esi_intensity_vars(df):
