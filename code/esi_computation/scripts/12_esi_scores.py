@@ -119,7 +119,7 @@ df_scores["esi_total_wfuel"] = df_scores[
 ].sum(axis=1, skipna=False, min_count=1)
 
 # Excluding farms that cultivate crops other than MAIZE
-esi_cols = ["esi_total_wfuel", "esi_total", "esi_climate_albedo", "esi_climate", "esi_water", "esi_land"]
+esi_cols = ["esi_total_wfuel", "esi_total", "esi_climate_albedo", "esi_climate_wfuel", "esi_climate", "esi_water", "esi_land"]
 df_scores.loc[df_scores["crops"] != "MAIZE", esi_cols] = np.nan
 
 # ESI intensity variables
