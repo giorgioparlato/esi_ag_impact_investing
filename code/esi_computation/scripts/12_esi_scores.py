@@ -52,6 +52,7 @@ SELECT
     table_02_reference_enriched.cc_metric_rate_scaled,
 
     table_03_agronomic_features.area_km2,
+    table_03_agronomic_features.crops,
     table_05_water_features.water_cons_hyb_ml_dam3,
     table_05_water_features.water_sources,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
@@ -123,6 +124,9 @@ df_scores["esi_total_wfuel"] = df_scores[
     ["esi_land", "esi_water", "esi_climate_wfuel", "esi_climate_albedo"]
 ].sum(axis=1, skipna=False, min_count=1)
 
+# Excluding farms that cultivate crops other than MAIZE
+esi_cols = ["esi_total_wfuel", "esi_total", "esi_climate_albedo", "esi_climate_wfuel", "esi_climate", "esi_water", "esi_land"]
+df_scores.loc[df_scores["crops"] != "MAIZE", esi_cols] = np.nan
 
 # ESI intensity variables
 def compute_esi_intensity_vars(df):
