@@ -53,6 +53,7 @@ SELECT
 
     table_03_agronomic_features.area_km2,
     table_05_water_features.water_cons_hyb_ml_dam3,
+    table_05_water_features.water_sources,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
     table_11_emissions_net_ghg.net_ghg_emissions_wfuel_tco2eq,
     table_11_emissions_net_ghg.albedo_emissions_tco2eq,
@@ -83,10 +84,15 @@ df_scores = df_in.copy()
 df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
+valid_water_source = ~df_scores.water_source.str.contains(
+    "SUBTERRANEAN|WASTEWATER", case=False, na=False
+)
+
 water_conditions = [
-    df_scores.water_cons_hyb_ml_dam3.notna() & df_scores.ro_metric_scaled.notna(),
+    valid_water_source & df_scores.water_cons_hyb_ml_dam3.notna() & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
 ]
+
 water_choices = [
     df_scores.water_cons_hyb_ml_dam3 * df_scores.ro_metric_scaled,
     0,
