@@ -24,27 +24,12 @@ import pandas as pd
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# File paths and sheet names
-# Get home directory (useful if you are working on different machines)
-PATH_HOME = Path.home()
-
-# Define where the data is located
-PATH_DATA = r"esi_cimmyt"
-
-# Path to CIMMYT logbook dataset (version 6.0)
-PATH_CIMMYT_MEXICO_LOGBOOK = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\1.-Farmer_Plot_Logbook_2012-2022_03.xlsx"
+from paths import (
+    PATH_CIMMYT_LOGBOOK,
+    SHEET_CIMMYT_LOGBOOK,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-SHEET_CIMMYT_MEXICO_LOGBOOK = "Data"
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -108,8 +93,9 @@ OTHER_VARS = [
 # -----------------------------------------------------------------------------
 # Load the dataset
 logbook_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_LOGBOOK, sheet_name=SHEET_CIMMYT_MEXICO_LOGBOOK, header=1
+    io=PATH_CIMMYT_LOGBOOK, sheet_name=SHEET_CIMMYT_LOGBOOK, header=1
 )
+
 # -----------------------------------------------------------------------------
 # Data preprocessing
 # -----------------------------------------------------------------------------
@@ -193,14 +179,17 @@ logbook_df_final = logbook_df_final.sort_values(
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write the final DataFrame as a feather file
-logbook_df_final.to_feather(PATH_EXPORT_TABLES / r"table_01_reference.feather")
+# Write feather file
+logbook_df_final.to_feather(PATH_PROCESSED_TABLES / "table_01_reference.feather")
 
-# Write the DataFrame to SQL
-con = sqlite3.connect(PATH_SQL_DB)
-logbook_df_final.to_sql(
-    name="table_01_reference", con=con, if_exists="replace", index=False
-)
+# Write to SQL database
+with sqlite3.connect(PATH_SQL_DB) as con:
+    logbook_df_final.to_sql(
+        name="table_01_reference",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

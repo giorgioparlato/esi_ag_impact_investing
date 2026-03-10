@@ -27,33 +27,14 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
-
-# Define where the data is located
-PATH_DATA = r"esi_cimmyt"
-
-# CIMMYT dataset on agricultural supplies (version 6.0)
-PATH_CIMMYT_MEXICO_INPUTS = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\4.-Agricultural supplies_2012-2022_01.xlsx"
+from paths import (
+    PATH_CIMMYT_INPUTS,
+    SHEET_CIMMYT_SYNTHETIC_INPUTS,
+    SHEET_CIMMYT_ORGANIC_INPUTS,
+    PATH_AGRONOMIC_FEATURES,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-# Sheet names
-SHEET_CIMMYT_MEXICO_SYNTHETIC_INPUTS = "Agricultural supplies"
-SHEET_CIMMYT_MEXICO_ORGANIC_INPUTS = "Organic Fertilization"
-
-# Path to agronomic features table
-PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
-)
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -94,12 +75,12 @@ KEY_VARS_ORGANIC = [
 # -----------------------------------------------------------------------------
 # Load synthetic inputs dataset
 syn_inputs_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_INPUTS, sheet_name=SHEET_CIMMYT_MEXICO_SYNTHETIC_INPUTS
+    io=PATH_CIMMYT_INPUTS, sheet_name=SHEET_CIMMYT_SYNTHETIC_INPUTS
 )
 
 # Load organic inputs dataset
 org_inputs_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_INPUTS, sheet_name=SHEET_CIMMYT_MEXICO_ORGANIC_INPUTS
+    io=PATH_CIMMYT_INPUTS, sheet_name=SHEET_CIMMYT_ORGANIC_INPUTS
 )
 
 # Load plot areas
@@ -302,45 +283,43 @@ inputs_df_imp_amount.loc[mask_still_missing, target_column] = inputs_df_imp_amou
 # Density mapping (kg/L) by product name
 DENSITY_MAP = {
     # INSECTICIDES
-    "PALGUS":           1.0176,
-    "DENIN 19 CE":      0.9,
-    "LORSBAN 480":      1.149,
-    "ARRIVO 200 CE":    0.9413,
-    "CIPERMETRINA":     0.9413,
-    "KARATE ZEON 5CS":  1.057,
-    "ENGEO":            1.119,
-    "CORAGEN 20 SC":    1.09,
-    "AMPLIGO":          1.08,
-
+    "PALGUS": 1.0176,
+    "DENIN 19 CE": 0.9,
+    "LORSBAN 480": 1.149,
+    "ARRIVO 200 CE": 0.9413,
+    "CIPERMETRINA": 0.9413,
+    "KARATE ZEON 5CS": 1.057,
+    "ENGEO": 1.119,
+    "CORAGEN 20 SC": 1.09,
+    "AMPLIGO": 1.08,
     # FUNGICIDES
-    "FOLICUR 250 EW":               0.97,
-    "HEADLINE":                     1.05,
-    "CONSIST MAX":                  1.16,
-    "PRIORI XTRA":                  1.1,
-    "PRIORI EXTRA":                 1.1,
-    "QUILT":                        1.07,
-    "OPUS":                         1.05,
-    "TEBUCUR":                      0.97,
-
+    "FOLICUR 250 EW": 0.97,
+    "HEADLINE": 1.05,
+    "CONSIST MAX": 1.16,
+    "PRIORI XTRA": 1.1,
+    "PRIORI EXTRA": 1.1,
+    "QUILT": 1.07,
+    "OPUS": 1.05,
+    "TEBUCUR": 0.97,
     # HERBICIDES
-    "PARAQUAT 200":     1.08,
-    "GRAMOXONE":        1.073,
-    "2,4-D AMINA 720":  1.2,
-    "HIERBAMINA":       1.17,
+    "PARAQUAT 200": 1.08,
+    "GRAMOXONE": 1.073,
+    "2,4-D AMINA 720": 1.2,
+    "HIERBAMINA": 1.17,
     "GLIFOSATO 360 SA": 1.165,
-    "FAENA":            1.25,
-    "FINALE":           1.11,
-    "GRAMOCIL":         1.088,
-    "LAUDIS":           1.22,
-    "ESTERON 47M":      1.025,
-    "PRIMAGRAM GOLD":   1.1,
+    "FAENA": 1.25,
+    "FINALE": 1.11,
+    "GRAMOCIL": 1.088,
+    "LAUDIS": 1.22,
+    "ESTERON 47M": 1.025,
+    "PRIMAGRAM GOLD": 1.1,
 }
 
 # Generic (category-level) fallback densities (average for the category of all values gathered from product-specific sources)
 GENERIC_DENSITY = {
     "INSECTICIDE": 1.033,
-    "FUNGICIDE":   1.053,
-    "HERBICIDE":   1.151,
+    "FUNGICIDE": 1.053,
+    "HERBICIDE": 1.151,
 }
 
 RELEVANT_CATEGORIES = set(GENERIC_DENSITY.keys())
@@ -362,19 +341,16 @@ def convert_L_to_KG(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    mask = (
-        df["product_category"].isin(RELEVANT_CATEGORIES) &
-        (df["units_ha"] == "L_HA")
-    )
+    mask = df["product_category"].isin(RELEVANT_CATEGORIES) & (df["units_ha"] == "L_HA")
 
     density = df.loc[mask].apply(
         lambda row: get_density(row["product_name_applied"], row["product_category"]),
-        axis=1
+        axis=1,
     )
 
-    df.loc[mask, "amount_of_product_applied"]         *= density.values
+    df.loc[mask, "amount_of_product_applied"] *= density.values
     df.loc[mask, "amount_of_product_applied_imputed"] *= density.values
-    df.loc[mask, "units_ha"]                           = "KG_HA"
+    df.loc[mask, "units_ha"] = "KG_HA"
 
     return df
 
@@ -553,7 +529,7 @@ inputs_df_imp_estimation_syn.loc[
 
 # Bayfolan specific nitrogen
 mask_bayfolan_l = inputs_df_imp_estimation_syn["product_name_applied"].eq(
-"BAYFOLAN FORTE"
+    "BAYFOLAN FORTE"
 ) & inputs_df_imp_estimation_syn["units_ha"].eq("L_HA")
 
 inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "units_ha"] = "KG_HA"
@@ -562,7 +538,8 @@ inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "units_ha"] = "KG_HA"
 # Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/product-msds/BAYFOLAN-FORTE-Hoja-de-seguridad-2024.pdf
 
 inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] = (
-inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] * 1.22
+    inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"]
+    * 1.22
 )
 
 # Assign nitrogen content percentage for all Bayfolan Forte in KG_HA
@@ -570,7 +547,7 @@ inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] *
 
 mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
     "BAYFOLAN FORTE"
-    ) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
+) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 
 inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n"] = 11.47
 ###
@@ -671,7 +648,14 @@ inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] 
 mask_n_inputs = (
     mask_synth
     & inputs_df_imp_estimation_syn["product_category"].isin(
-        ["FERTILIZER", "INSECTICIDE", "FUNGICIDE", "HERBICIDE", "FOLIAR FERTILIZER", "BIOFERTILIZER"]
+        [
+            "FERTILIZER",
+            "INSECTICIDE",
+            "FUNGICIDE",
+            "HERBICIDE",
+            "FOLIAR FERTILIZER",
+            "BIOFERTILIZER",
+        ]
     )
     & inputs_df_imp_estimation_syn["product_name_applied"].ne("UREA")
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
@@ -908,11 +892,10 @@ missing_ef_prod = inputs_df_imp_flags["ef_synth_input_prod_kg_co2eq_unit"].isna(
 missing_ef_tran = inputs_df_imp_flags["ef_synth_input_tran_dist_kg_co2eq_kg"].isna()
 
 # Application EF applies primarily to fertilizers, not pesticides
-missing_ef_app = (
-    inputs_df_imp_flags["ef_synth_input_app_kg_co2eq_unit"].isna()
-    & ~inputs_df_imp_flags["product_category"].isin(
-        ["HERBICIDE", "FUNGICIDE", "INSECTICIDE"]
-    )
+missing_ef_app = inputs_df_imp_flags[
+    "ef_synth_input_app_kg_co2eq_unit"
+].isna() & ~inputs_df_imp_flags["product_category"].isin(
+    ["HERBICIDE", "FUNGICIDE", "INSECTICIDE"]
 )
 
 inputs_df_imp_flags["flag_missing_ef_prod"] = missing_ef_prod
@@ -1304,15 +1287,19 @@ inputs_df_final = inputs_df_final.reindex(columns=new_index)
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
-inputs_df_final.to_feather(PATH_EXPORT_TABLES / r"table_07_emissions_ag_inputs.feather")
-
-# Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-inputs_df_final.to_sql(
-    name="table_07_emissions_ag_inputs", con=con, if_exists="replace", index=False
+# Write feather file
+inputs_df_final.to_feather(
+    PATH_PROCESSED_TABLES / "table_07_emissions_ag_inputs.feather"
 )
 
+# Write to SQL database
+with sqlite3.connect(PATH_SQL_DB) as con:
+    inputs_df_final.to_sql(
+        name="table_07_emissions_ag_inputs",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
+
 # END
-exit("Execution complete.")
+print("Execution complete.")

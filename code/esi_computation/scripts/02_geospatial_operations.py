@@ -28,56 +28,17 @@ from shapely.geometry import Point
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
 
-# Data directory
-PATH_DATA = r"esi_cimmyt"
-
-# Path to geospatial layer for continents
-# Source: https://data.niaid.nih.gov/resources?id=zenodo_10778078
-PATH_CONTINENTS = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\geospatial\vector\world_geographic_regions\World_Geographic_Regionst.shp"
+from paths import (
+    PATH_REFERENCE_TABLE,
+    PATH_CONTINENTS,
+    PATH_VEGETATION_TYPES,
+    PATH_ESI_COEFFICIENTS,
+    PATH_CLIMATE_ZONES,
+    PATH_SOC_REF,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-# Path to vegetation types raster
-# Source: model output (LPJmL)
-PATH_VEGETATION_TYPES = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\geospatial\raster\vegetation_types\vegmap_nolu_late_20251117.asc"
-)
-
-# Path to ESI coefficients
-# Source: model output (LPJmL, processed in Excel)
-PATH_ESI_COEFFICIENTS = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\esi_coefficients\esi_coefficients_table_20260127.xlsx"
-)
-
-# Path to climatic zones raster
-# Reference: European Soil Data Centre (ESDAC), esdac.jrc.ec.europa.eu, European Commission, Joint Research Centre
-# Source: https://esdac.jrc.ec.europa.eu/content/support-renewable-energy-directive#tabs-0-description=1
-PATH_CLIMATE_ZONES = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\climate_zones"
-
-# Path to SOC reference values raster
-# Reference: FAO and ITPS. 2018. Global Soil Organic Carbon Map (GSOCmap) Technical Report. Rome. 162 pp.
-# Source: https://console.cloud.google.com/storage/browser/fao-gismgr-gsocseq-data/DATA/GSOCSEQ/MAP;tab=objects?prefix=&forceOnObjectsSortingFiltering=false
-PATH_SOC_REF = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_organic_carbon"
-
-# Path to reference table
-PATH_REF_TABLE = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_01_reference.feather"
-)
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -104,7 +65,7 @@ CLIMATE_ZONE_NAMES = {
 # Import data
 # -----------------------------------------------------------------------------
 # Load the reference table
-ref_tab_df = pd.read_feather(PATH_REF_TABLE)
+ref_tab_df = pd.read_feather(PATH_REFERENCE_TABLE)
 
 # Load continents shape file
 continents_shp = gpd.read_file(PATH_CONTINENTS)
@@ -233,20 +194,21 @@ ref_gdf_final = ref_gdf_final.sort_values(
     by=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
 )
 
+
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write the final GeoDataFrame as a feather file
-ref_gdf_final.to_feather(PATH_EXPORT_TABLES / r"table_02_reference_enriched.feather")
+# Write feather file
+ref_gdf_final.to_feather(PATH_PROCESSED_TABLES / "table_02_reference_enriched.feather")
 
-# Write the final DataFrame to an SQL database
-# Connect to the database
-con = sqlite3.connect(PATH_SQL_DB)
-
-# Write the DataFrame to SQL
-ref_gdf_final.drop(columns="geometry").to_sql(
-    name="table_02_reference_enriched", con=con, if_exists="replace", index=False
-)
+# Write to SQL database
+with sqlite3.connect(PATH_SQL_DB) as con:
+    ref_gdf_final.drop(columns="geometry").to_sql(
+        name="table_02_reference_enriched",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

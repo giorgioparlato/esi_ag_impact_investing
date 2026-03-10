@@ -22,55 +22,15 @@ import janitor
 import numpy as np
 import pandas as pd
 
-# -----------------------------------------------------------------------------
-# Paths
-# -----------------------------------------------------------------------------
-# File paths and sheet names
-# Get home directory (useful if you are working on different machines)
-PATH_HOME = Path.home()
-
-# Define where the data is located
-PATH_DATA = r"esi_cimmyt"
-
-# # CIMMYT irrigation dataset (version 6.0)
-# PATH_CIMMYT_MEXICO_WATER = (
-#     PATH_HOME
-#     / PATH_DATA
-#     / r"data\raw\cimmyt\dataverse_files\5.-Irrigacion_2012-2022_01.xlsx"
-# )
-
-# SHEET_CIMMYT_MEXICO_WATER = "Data"
-
-# Dataset with gradient boosting imputed irrigation data
-PATH_WATER_GRADIENT_BOOSTING = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\irrigation_df_ml_imputed.feather"
+from paths import (
+    PATH_CIMMYT_ECONOMICS,
+    SHEET_CIMMYT_ECONOMICS,
+    PATH_WATER_GRADIENT_BOOSTING,
+    PATH_WATER_TARIFFS,
+    PATH_AGRONOMIC_FEATURES,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-# Path to water tariffs
-# Source: compiled from https://www.gob.mx/conagua/documentos/ley-federal-de-derechos-386262
-PATH_WATER_TARIFFS = (
-    PATH_HOME / PATH_DATA / r"data\raw\water\water_tariffs_conagua.xlsx"
-)
-
-# Path to agronomic features table
-PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
-)
-
-# Path to CIMMYT cost-revenue dataset (Mexico)
-PATH_CIMMYT_MEXICO_ECONOMICS = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\6.-Costs and revenues_2012-2022_02.xlsx"
-)
-
-SHEET_CIMMYT_MEXICO_ECONOMICS = "Data"
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -156,7 +116,7 @@ water_df_gb = pd.read_feather(
 
 # Load dataset on costs and revenues
 economics_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_ECONOMICS, sheet_name=SHEET_CIMMYT_MEXICO_ECONOMICS, header=1
+    io=PATH_CIMMYT_ECONOMICS, sheet_name=SHEET_CIMMYT_ECONOMICS, header=1
 )
 
 # Load water tariffs from CONAGUA
@@ -584,15 +544,19 @@ water_df_emissions["irr_equip_ml_adj_tco2eq"] = np.where(
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
+# Write feather file
 water_df_final = water_df_emissions.copy()
-water_df_final.to_feather(PATH_EXPORT_TABLES / r"table_05_water_features.feather")
+
+water_df_final.to_feather(PATH_PROCESSED_TABLES / "table_05_water_features.feather")
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-water_df_final.to_sql(
-    name="table_05_water_features", con=con, if_exists="replace", index=False
-)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    water_df_final.to_sql(
+        name="table_05_water_features",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")
