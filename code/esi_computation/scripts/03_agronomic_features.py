@@ -67,15 +67,11 @@ OTHER_COLUMNS = [
     "unit_of_measure_ha",
 ]
 
-# Conversion factor from bales (US) to metric tons
-# Source: https://www.convertunits.com/from/bales/to/metric+ton
-CF_BALE_TON = 0.2177243376
-
 # Conversion factor from kilograms to metric tons
 # Source: https://www.google.com/search?q=kilograms+to+metric+tons&oq=kilograms+to+metric+tons&gs_lcrp=EgZjaHJvbWUyCQgAEEUYORiABDIGCAEQBhhA0gEIMzg2OGowajSoAgGwAgHxBW6Qdp7Y_Xbz8QVukHae2P128w&sourceid=chrome&ie=UTF-8
 CF_KG_TON = 0.001
 
-SUPPORTED_UNITS = ["TON", "BALE", "KG"]
+SUPPORTED_UNITS = ["TON", "KG"]
 
 # -----------------------------------------------------------------------------
 # Import data
@@ -121,7 +117,7 @@ agronomic_df_vars = agronomic_df_vars[
     ID_COLUMNS + YEAR_COLUMN + AREA_COLUMNS + OTHER_COLUMNS
 ]
 
-# Conversions from bales and kgs to metric tons of yield per hectare
+# Conversions from kgs to metric tons of yield per hectare
 agronomic_df_units = agronomic_df_vars.copy()
 
 supported_units = agronomic_df_units["unit_of_measure_ha"].isin(SUPPORTED_UNITS)
@@ -129,12 +125,10 @@ supported_units = agronomic_df_units["unit_of_measure_ha"].isin(SUPPORTED_UNITS)
 agronomic_df_units["yield_t_ha"] = np.select(
     [
         (agronomic_df_units["unit_of_measure_ha"] == "TON"),
-        (agronomic_df_units["unit_of_measure_ha"] == "BALE"),
         (agronomic_df_units["unit_of_measure_ha"] == "KG"),
     ],
     [
         agronomic_df_units["actual_yield_unit_ha"],
-        agronomic_df_units["actual_yield_unit_ha"] * CF_BALE_TON,
         agronomic_df_units["actual_yield_unit_ha"] * CF_KG_TON,
     ],
     default=np.nan,
