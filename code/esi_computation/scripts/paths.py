@@ -92,7 +92,7 @@ PATH_PROCESSED_TABLES = PATH_DATA / "processed" / "tables"
 PATH_REFERENCE_TABLE = PATH_PROCESSED_TABLES / "table_01_reference.feather"
 PATH_REF_TABLE_ENRICHED = PATH_PROCESSED_TABLES / "table_02_reference_enriched.feather"
 PATH_AGRONOMIC_FEATURES = PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather"
-PATH_WATER_GRADIENT_BOOSTING = (
+PATH_WATER_RANDOM_FOREST = (
     PATH_PROCESSED_TABLES / "irrigation_df_ml_imputed.feather"
 )
 PATH_AG_INPUTS = PATH_PROCESSED_TABLES / "table_07_emissions_ag_inputs.feather"
