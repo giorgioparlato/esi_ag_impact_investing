@@ -114,55 +114,6 @@ water_df_metrics["water_cons_rep_adj_m3_ha"] = np.where(
     np.nan,
 )
 
-# Compute water consumption estimates in cubic meters per hectare
-water_df_metrics["water_cons_est_m3_ha"] = np.where(
-    water_df_metrics["irrigation_cost_mxn_ha"].notna()
-    & water_df_metrics["mxn_m3"].notna(),
-    water_df_metrics["irrigation_cost_mxn_ha"] / water_df_metrics["mxn_m3"],
-    np.nan,
-)
-
-# Compute water consumption estimates in cubic meters per hectare, adjusted for irrigation efficiency
-water_df_metrics["water_cons_est_adj_m3_ha"] = np.where(
-    water_df_metrics["irrigation_cost_mxn_ha"].notna()
-    & water_df_metrics["mxn_m3"].notna()
-    & water_df_metrics["irr_efficiency_param"].notna(),
-    water_df_metrics["irrigation_cost_mxn_ha"]
-    / water_df_metrics["mxn_m3"]
-    * water_df_metrics["irr_efficiency_param"],
-    water_df_metrics["irrigation_cost_mxn_ha"] / water_df_metrics["mxn_m3"],
-)
-
-# Create a new column to store both reported and estimated values
-water_df_metrics["water_cons_hyb_m3_ha"] = water_df_metrics[
-    "water_cons_rep_m3_ha"
-].where(
-    water_df_metrics["water_cons_rep_m3_ha"] > 0.0,
-    water_df_metrics["water_cons_est_m3_ha"],
-)
-
-# Create a new column to store both reported and estimated values, adjusted for irrigation efficiency
-water_df_metrics["water_cons_hyb_adj_m3_ha"] = water_df_metrics[
-    "water_cons_rep_adj_m3_ha"
-].where(
-    water_df_metrics["water_cons_rep_adj_m3_ha"] > 0.0,
-    water_df_metrics["water_cons_est_adj_m3_ha"],
-)
-
-# Add a column to flag whether the value is reported or estimated
-conditions_cost_method = [
-    water_df_metrics["water_cons_hyb_m3_ha"]
-    == water_df_metrics["water_cons_rep_m3_ha"],
-    water_df_metrics["water_cons_hyb_m3_ha"]
-    == water_df_metrics["water_cons_est_m3_ha"],
-]
-
-choices_cost_method = ["REPORTED", "ESTIMATED"]
-
-water_df_metrics["flag_est_method_cost"] = np.select(
-    conditions_cost_method, choices_cost_method, default="MISSING"
-)
-
 # Create a new column using the ML estimates
 water_df_metrics["water_cons_hyb_ml_m3_ha"] = (
     water_df_metrics["water_hybrid_ml_lt"] * 10**-3
@@ -186,22 +137,6 @@ water_df_totals["water_cons_rep_adj_m3"] = (
     water_df_totals.water_cons_rep_adj_m3_ha * water_df_totals.area_ha
 )
 
-water_df_totals["water_cons_est_m3"] = (
-    water_df_totals.water_cons_est_m3_ha * water_df_totals.area_ha
-)
-
-water_df_totals["water_cons_est_adj_m3"] = (
-    water_df_totals.water_cons_est_adj_m3_ha * water_df_totals.area_ha
-)
-
-water_df_totals["water_cons_hyb_m3"] = (
-    water_df_totals.water_cons_hyb_m3_ha * water_df_totals.area_ha
-)
-
-water_df_totals["water_cons_hyb_adj_m3"] = (
-    water_df_totals.water_cons_hyb_adj_m3_ha * water_df_totals.area_ha
-)
-
 water_df_totals["water_cons_hyb_ml_m3"] = (
     water_df_totals.water_cons_hyb_ml_m3_ha * water_df_totals.area_ha
 )
@@ -211,10 +146,6 @@ water_df_totals["water_cons_hyb_ml_adj_m3"] = (
 )
 
 # Convert to cubic decameters for calculation of water ESI
-water_df_totals["water_cons_hyb_dam3"] = water_df_totals.water_cons_hyb_m3 * 10**-3
-water_df_totals["water_cons_hyb_adj_dam3"] = (
-    water_df_totals.water_cons_hyb_adj_m3 * 10**-3
-)
 water_df_totals["water_cons_hyb_ml_dam3"] = (
     water_df_totals.water_cons_hyb_ml_m3 * 10**-3
 )
@@ -224,18 +155,6 @@ water_df_totals["water_cons_hyb_ml_adj_dam3"] = (
 
 # Emissions based on non-adjusted hybrid water consumption estimates (cost method), per hectare basis
 water_df_emissions = water_df_totals.copy()
-
-water_df_emissions["irr_app_tco2eq_ha"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_m3_ha"] * EF_IRR_APP,
-    np.nan,
-)
-
-water_df_emissions["irr_equip_tco2eq_ha"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_m3_ha"] * EF_IRR_EQUIP,
-    np.nan,
-)
 
 # Emissions based on non-adjusted hybrid water consumption estimates (ML method), per hectare basis
 water_df_emissions["irr_app_ml_tco2eq_ha"] = np.where(
@@ -247,19 +166,6 @@ water_df_emissions["irr_app_ml_tco2eq_ha"] = np.where(
 water_df_emissions["irr_equip_ml_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_m3_ha"] * EF_IRR_EQUIP,
-    np.nan,
-)
-
-# Emissions based on adjusted hybrid water consumption estimates (cost method), per hectare basis
-water_df_emissions["irr_app_adj_tco2eq_ha"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_adj_m3_ha"] * EF_IRR_APP,
-    np.nan,
-)
-
-water_df_emissions["irr_equip_adj_tco2eq_ha"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_adj_m3_ha"] * EF_IRR_EQUIP,
     np.nan,
 )
 
@@ -299,19 +205,6 @@ water_df_emissions["irr_app_ml_tco2eq"] = np.where(
 water_df_emissions["irr_equip_ml_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_m3"] * EF_IRR_EQUIP,
-    np.nan,
-)
-
-# Emissions based on adjusted hybrid water consumption estimates (cost method), total
-water_df_emissions["irr_app_adj_tco2eq"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_adj_m3"] * EF_IRR_APP,
-    np.nan,
-)
-
-water_df_emissions["irr_equip_adj_tco2eq"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_adj_m3"] * EF_IRR_EQUIP,
     np.nan,
 )
 
