@@ -23,36 +23,13 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# File paths and sheet names
-# Get home directory (useful if you are working on different machines)
-PATH_HOME = Path.home()
-
-# Define where the data is located
-PATH_DATA = r"esi_cimmyt"
-
-# Path to CIMMYT dataset storing fuel consumption data (version 6.0)
-PATH_CIMMYT_MEXICO_ACTIVITIES = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\3._Labor_harvest_activities_2012-2022_02.xlsx"
-)
-
-SHEET_CIMMYT_MEXICO_ACTIVITIES = "Data"
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
-
-# Path to reference table
-PATH_REFERENCE_TABLE = (
-    PATH_HOME / PATH_DATA / PATH_EXPORT_TABLES / r"table_01_reference.feather"
-)
-
-# Path to agronomic features table
-PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
+from paths import (
+    PATH_CIMMYT_ACTIVITIES,
+    SHEET_CIMMYT_ACTIVITIES,
+    PATH_PROCESSED_TABLES,
+    PATH_REFERENCE_TABLE,
+    PATH_AGRONOMIC_FEATURES,
+    PATH_SQL_DB,
 )
 
 # -----------------------------------------------------------------------------
@@ -96,8 +73,8 @@ EF_DIESEL_KG_CO2EQ_L = (
 # -----------------------------------------------------------------------------
 # Load the activities dataset
 activities_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_ACTIVITIES,
-    sheet_name=SHEET_CIMMYT_MEXICO_ACTIVITIES,
+    io=PATH_CIMMYT_ACTIVITIES,
+    sheet_name=SHEET_CIMMYT_ACTIVITIES,
     header=1,
 )
 
@@ -282,15 +259,17 @@ fuel_df_final = fuel_df_final.reindex(columns=new_index)
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
-fuel_df_final.to_feather(PATH_EXPORT_TABLES / r"table_06_emissions_fuel.feather")
+# Write feather file
+fuel_df_final.to_feather(PATH_PROCESSED_TABLES / "table_06_emissions_fuel.feather")
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-fuel_df_final.to_sql(
-    name="table_06_emissions_fuel", con=con, if_exists="replace", index=False
-)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    fuel_df_final.to_sql(
+        name="table_06_emissions_fuel",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

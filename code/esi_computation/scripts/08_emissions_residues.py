@@ -24,31 +24,13 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
-
-# Define where the data is located
-PATH_DATA = r"esi_cimmyt"
-
-# CIMMYT dataset on field activities
-PATH_CIMMYT_MEXICO_ACTIVITIES = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\3._Labor_harvest_activities_2012-2022_02.xlsx"
+from paths import (
+    PATH_CIMMYT_ACTIVITIES,
+    SHEET_CIMMYT_ACTIVITIES,
+    PATH_AGRONOMIC_FEATURES,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-SHEET_CIMMYT_MEXICO_ACTIVITIES = "Data"
-
-# Path to agronomic features table
-PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
-)
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -141,8 +123,8 @@ GWP_AR6_CH4 = 27
 # -----------------------------------------------------------------------------
 # Load the activities dataset
 residues_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_ACTIVITIES,
-    sheet_name=SHEET_CIMMYT_MEXICO_ACTIVITIES,
+    io=PATH_CIMMYT_ACTIVITIES,
+    sheet_name=SHEET_CIMMYT_ACTIVITIES,
     header=1,
 )
 
@@ -549,17 +531,19 @@ residues_df_final = residues_df_final.reindex(columns=new_index)
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
+# Write feather file
 residues_df_final.to_feather(
-    PATH_EXPORT_TABLES / r"table_08_emissions_residues.feather"
+    PATH_PROCESSED_TABLES / "table_08_emissions_residues.feather"
 )
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-residues_df_final.to_sql(
-    name="table_08_emissions_residues", con=con, if_exists="replace", index=False
-)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    residues_df_final.to_sql(
+        name="table_08_emissions_residues",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

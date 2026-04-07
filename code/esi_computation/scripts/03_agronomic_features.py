@@ -25,27 +25,12 @@ import pandas as pd
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
-
-# Define where the data is located
-PATH_DATA = r"esi_cimmyt"
-
-# CIMMYT dataset storing agronomic features (version 6.0)
-PATH_CIMMYT_MEXICO_AGRONOMIC_FEATURES = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\2.-Sowing_harvest_yields_2012-2022_02.xlsx"
+from paths import (
+    PATH_CIMMYT_AGRONOMIC_FEATURES,
+    SHEET_CIMMYT_AGRONOMIC_FEATURES,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-# Sheet name
-SHEET_CIMMYT_MEXICO_AGRONOMIC_FEATURES = "Data"
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -78,8 +63,8 @@ SUPPORTED_UNITS = ["TON", "KG"]
 # -----------------------------------------------------------------------------
 # Load the CIMMYT dataset storing agronomic features
 agronomic_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_AGRONOMIC_FEATURES,
-    sheet_name=SHEET_CIMMYT_MEXICO_AGRONOMIC_FEATURES,
+    io=PATH_CIMMYT_AGRONOMIC_FEATURES,
+    sheet_name=SHEET_CIMMYT_AGRONOMIC_FEATURES,
 )
 
 # -----------------------------------------------------------------------------
@@ -234,17 +219,19 @@ agronomic_df_final = agronomic_df_scale.sort_values(
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
+# Write feather file
 agronomic_df_final.to_feather(
-    PATH_EXPORT_TABLES / r"table_03_agronomic_features.feather"
+    PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather"
 )
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-agronomic_df_final.to_sql(
-    name="table_03_agronomic_features", con=con, if_exists="replace", index=False
-)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    agronomic_df_final.to_sql(
+        name="table_03_agronomic_features",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

@@ -47,71 +47,23 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 # -----------------------------------------------------------------------------
 # Paths and other constants
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
 
-# Data directory
-PATH_DATA = r"esi_cimmyt"
-
-# CIMMYT irrigation dataset (version 6.0)
-PATH_CIMMYT_MEXICO_WATER = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\5.-Irrigacion_2012-2022_01.xlsx"
+from paths import (
+    PATH_CIMMYT_LOGBOOK,
+    SHEET_CIMMYT_LOGBOOK,
+    PATH_CIMMYT_WATER,
+    SHEET_CIMMYT_WATER,
+    PATH_CIMMYT_ECONOMICS,
+    SHEET_CIMMYT_ECONOMICS,
+    PATH_REFERENCE_TABLE,
+    PATH_AGRONOMIC_FEATURES,
+    PATH_WATER_TARIFFS,
+    PATH_CLIMATE_ZONES,
+    PATH_SOIL_CLASS,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
+    PATH_SQL_DB_EXT,
 )
-SHEET_CIMMYT_MEXICO_WATER = "Data"
-
-# Path to water tariffs
-# Source: compiled from https://www.gob.mx/conagua/documentos/ley-federal-de-derechos-386262
-PATH_WATER_TARIFFS = (
-    PATH_HOME / PATH_DATA / r"data\raw\water\water_tariffs_conagua.xlsx"
-)
-
-# Path to CIMMYT logbook dataset (version 6.0)
-PATH_CIMMYT_MEXICO_LOGBOOK = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\1.-Farmer_Plot_Logbook_2012-2022_03.xlsx"
-)
-
-SHEET_CIMMYT_MEXICO_LOGBOOK = "Data"
-
-# Path to agronomic features table
-PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
-)
-
-# Path to reference table
-PATH_REF_TABLE = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_01_reference.feather"
-)
-
-# Path to CIMMYT cost-revenue dataset (Mexico)
-PATH_CIMMYT_MEXICO_ECONOMICS = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\6.-Costs and revenues_2012-2022_02.xlsx"
-)
-SHEET_CIMMYT_MEXICO_ECONOMICS = "Data"
-
-# Processed tables
-PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
-
-# Connection to extended SQL DB including environmental variables
-PATH_SQL_DB_EXT = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmytExt.db"
-
-# Path to climatic zones raster
-# Reference: European Soil Data Centre (ESDAC), esdac.jrc.ec.europa.eu, European Commission, Joint Research Centre
-# Source: https://esdac.jrc.ec.europa.eu/content/support-renewable-energy-directive#tabs-0-description=1
-PATH_CLIMATE_ZONES = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\climate_zones"
-
-# Path to soil classes
-# Source: https://maps.isric.org/
-PATH_SOIL_CLASS = PATH_HOME / PATH_DATA / r"data\raw\geospatial\raster\soil_classes.tif"
-
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -177,22 +129,20 @@ water_tariffs_df = pd.read_excel(
 )
 
 # Load dataset on irrigation
-water_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_WATER, sheet_name=SHEET_CIMMYT_MEXICO_WATER
-)
+water_df_raw = pd.read_excel(io=PATH_CIMMYT_WATER, sheet_name=SHEET_CIMMYT_WATER)
 
 agronomic_df = pd.read_feather(PATH_AGRONOMIC_FEATURES)
 
-reference_df = pd.read_feather(PATH_REF_TABLE)
+reference_df = pd.read_feather(PATH_REFERENCE_TABLE)
 
 logbook_df = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_LOGBOOK, sheet_name=SHEET_CIMMYT_MEXICO_LOGBOOK, header=1
+    io=PATH_CIMMYT_LOGBOOK, sheet_name=SHEET_CIMMYT_LOGBOOK, header=1
 )
 
 soil_classes = rasterio.open(PATH_SOIL_CLASS, driver="GTiff")
 
 economics_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_ECONOMICS, sheet_name=SHEET_CIMMYT_MEXICO_ECONOMICS, header=1
+    io=PATH_CIMMYT_ECONOMICS, sheet_name=SHEET_CIMMYT_ECONOMICS, header=1
 )
 
 # -----------------------------------------------------------------------------
@@ -534,9 +484,17 @@ irrigation_df_gb["water_hybrid_ml_lt"] = irrigation_df_gb["water_hybrid_ml_lt"].
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
+# Write feather file
+irrigation_df_gb.to_feather(PATH_PROCESSED_TABLES / "irrigation_df_ml_imputed.feather")
 
-irrigation_df_gb.to_feather(PATH_PROCESSED_TABLES / r"irrigation_df_ml_imputed.feather")
+# Write to SQL database
+with sqlite3.connect(PATH_SQL_DB) as con:
+    irrigation_df_gb.to_sql(
+        name="irrigation_df_ml_imputed",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

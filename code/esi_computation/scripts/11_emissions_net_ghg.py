@@ -20,17 +20,7 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
-
-# Data directory
-PATH_DATA = r"esi_cimmyt"
-
-# Processed tables
-PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
+from paths import PATH_PROCESSED_TABLES, PATH_SQL_DB
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -185,13 +175,17 @@ df["net_ghg_emissions_wfuel_tco2eq_ha"] = df.net_ghg_emissions_wfuel_tco2eq / df
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
-df.to_feather(PATH_PROCESSED_TABLES / r"table_11_emissions_net_ghg.feather")
+# Write feather file
+df.to_feather(PATH_PROCESSED_TABLES / "table_11_emissions_net_ghg.feather")
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-df.to_sql(name="table_11_emissions_net_ghg", con=con, if_exists="replace", index=False)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    df.to_sql(
+        name="table_11_emissions_net_ghg",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")
