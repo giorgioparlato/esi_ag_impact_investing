@@ -86,7 +86,7 @@ df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
 valid_water_source = ~df_scores.water_sources.str.contains(
-    "SUBTERRANEAN|WASTEWATER", case=False, na=False
+    "SUBTERRANEAN", case=False, na=False
 )
 
 water_conditions = [
@@ -94,12 +94,12 @@ water_conditions = [
     & df_scores.water_cons_hyb_ml_dam3.notna()
     & df_scores.ro_metric_scaled.notna(),
     df_scores.hydric_regime.eq("RAINFED"),
+    df_scores.hydric_regime.eq("IRRIGATION")
+    & df_scores.water_sources.eq("WASTEWATER (E.G. INDUSTRIAL AND/OR DOMESTIC USE)"),
 ]
 
-water_choices = [
-    df_scores.water_cons_hyb_ml_dam3 * df_scores.ro_metric_scaled,
-    0,
-]
+water_choices = [df_scores.water_cons_hyb_ml_dam3 * df_scores.ro_metric_scaled, 0, 0]
+
 df_scores["esi_water"] = np.select(water_conditions, water_choices, default=np.nan)
 
 # Climate ESI scores
