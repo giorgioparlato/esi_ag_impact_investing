@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Data directory
 # Uses environment variable if available; otherwise falls back to local default
 PATH_DATA = Path(
-    os.environ.get("ESI_CIMMYT_DATA", r"C:\Users\darmar07.KVA\esi_cimmyt\data")
+    os.environ.get("ESI_CIMMYT_DATA", r"/Users/giorgioparlato/esi_cimmyt/data")
 ).expanduser()
 
 # -----------------------------------------------------------------------------
@@ -64,7 +64,7 @@ PATH_VEGETATION_TYPES = (
 
 # Path to climatic zones raster
 # Reference: European Soil Data Centre (ESDAC)
-PATH_CLIMATE_ZONES = PATH_DATA / "raw" / "geospatial" / "raster" / "climate_zones"
+PATH_CLIMATE_ZONES = PATH_DATA / "raw" / "geospatial" / "raster" / "climate_zones" / "CLIMATE_ZONE.rst"
 
 # Path to SOC reference values raster
 # Reference: FAO and ITPS. 2018. Global Soil Organic Carbon Map
