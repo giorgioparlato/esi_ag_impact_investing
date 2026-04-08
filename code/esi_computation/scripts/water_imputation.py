@@ -232,7 +232,7 @@ coords = list(zip(df["longitude_w"].values, df["latitude_n"].values))
 with rasterio.open(PATH_SOIL_CLASS) as src:
     df["soil_type"] = pd.Categorical([v[0] for v in src.sample(coords)])
 
-with rasterio.open(PATH_CLIMATE_ZONES) as src:
+with rasterio.open(PATH_CLIMATE_ZONES / "CLIMATE_ZONE.rst") as src:
     df["climate_code"] = pd.Categorical([v[0] for v in src.sample(coords)])
 
 # ---- Merge SQL environmental data (pcp, tmax, tmin) ----
