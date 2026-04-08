@@ -64,7 +64,7 @@ PATH_VEGETATION_TYPES = (
 
 # Path to climatic zones raster
 # Reference: European Soil Data Centre (ESDAC)
-PATH_CLIMATE_ZONES = PATH_DATA / "raw" / "geospatial" / "raster" / "climate_zones" / "CLIMATE_ZONE.rst"
+PATH_CLIMATE_ZONES = PATH_DATA / "raw" / "geospatial" / "raster" / "climate_zones"
 
 # Path to SOC reference values raster
 # Reference: FAO and ITPS. 2018. Global Soil Organic Carbon Map
