@@ -182,19 +182,6 @@ water_df_emissions["irr_equip_ml_adj_tco2eq_ha"] = np.where(
     np.nan,
 )
 
-# Emissions based on non-adjusted hybrid water consumption estimates (cost method), total
-water_df_emissions["irr_app_tco2eq"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_m3"] * EF_IRR_APP,
-    np.nan,
-)
-
-water_df_emissions["irr_equip_tco2eq"] = np.where(
-    water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
-    water_df_emissions["water_cons_hyb_m3"] * EF_IRR_EQUIP,
-    np.nan,
-)
-
 # Emissions based on non-adjusted hybrid water consumption estimates (ML method), total
 water_df_emissions["irr_app_ml_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
