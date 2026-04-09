@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Data directory
 # Uses environment variable if available; otherwise falls back to local default
 PATH_DATA = Path(
-    os.environ.get("ESI_CIMMYT_DATA", r"/Users/giorgioparlato/esi_cimmyt/data")
+    os.environ.get("ESI_CIMMYT_DATA", r"C:\Users\darmar07.KVA\esi_cimmyt\data")
 ).expanduser()
 
 # -----------------------------------------------------------------------------
@@ -92,9 +92,7 @@ PATH_PROCESSED_TABLES = PATH_DATA / "processed" / "tables"
 PATH_REFERENCE_TABLE = PATH_PROCESSED_TABLES / "table_01_reference.feather"
 PATH_REF_TABLE_ENRICHED = PATH_PROCESSED_TABLES / "table_02_reference_enriched.feather"
 PATH_AGRONOMIC_FEATURES = PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather"
-PATH_WATER_RANDOM_FOREST = (
-    PATH_PROCESSED_TABLES / "irrigation_df_ml_imputed.feather"
-)
+PATH_WATER_RANDOM_FOREST = PATH_PROCESSED_TABLES / "irrigation_df_ml_imputed.feather"
 PATH_AG_INPUTS = PATH_PROCESSED_TABLES / "table_07_emissions_ag_inputs.feather"
 PATH_CROP_RESIDUES = PATH_PROCESSED_TABLES / "table_08_emissions_residues.feather"
 
