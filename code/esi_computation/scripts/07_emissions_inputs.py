@@ -527,7 +527,7 @@ fert_specific = {
 
 mask_fert_kg = (
     mask_synth
-    & inputs_df_imp_estimation_syn["product_category"].eq("FERTILIZER")
+    & inputs_df_imp_estimation_syn["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"]) ## later on we include foliar and biofertilizers in the other synthetic inputs (if product category is chemichal)
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
 
@@ -560,9 +560,12 @@ inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "units_ha"] = "KG_HA"
 
 # Assign conversion factor for Bayfolan Forte based on density to convert from L_HA to KG_HA
 # Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/product-msds/BAYFOLAN-FORTE-Hoja-de-seguridad-2024.pdf
-
-inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] = (
-inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] * 1.22
+inputs_df_imp_estimation_syn.loc[
+    mask_bayfolan_l, ["amount_of_product_applied", "amount_of_product_applied_imputed"]
+] = (
+    inputs_df_imp_estimation_syn.loc[
+        mask_bayfolan_l, ["amount_of_product_applied", "amount_of_product_applied_imputed"]
+    ] * 1.22
 )
 
 # Assign nitrogen content percentage for all Bayfolan Forte in KG_HA
@@ -573,7 +576,6 @@ mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
     ) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 
 inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n"] = 11.47
-###
 
 # Compute emissions from synthetic input production
 inputs_df_imp_estimation_syn["synth_input_prod_t_co2eq_ha"] = (
@@ -601,7 +603,7 @@ fert_tran_dist_specific = {
 mask_fert_kg = (
     mask_synth
     & inputs_df_imp_estimation_syn["product_category"].isin(
-        ["FERTILIZER", "FOLIAR FERTILIZER"]
+        ["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"] ## later on we include biofertilizers in the other synthetic inputs (if product category is chemichal)
     )
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
