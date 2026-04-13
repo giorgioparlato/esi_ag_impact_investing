@@ -20,17 +20,7 @@ import pandas as pd
 # -----------------------------------------------------------------------------
 # Paths and constants
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
-
-# Data directory
-PATH_DATA = r"esi_cimmyt"
-
-# Processed tables
-PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
+from paths import PATH_PROCESSED_TABLES, PATH_SQL_DB
 
 # Map of vegetation types and albedo estimates (higher values mean brighter surfaces)
 # Source: model output (LPJmL)
@@ -90,19 +80,20 @@ albedo_df["albedo_emissions_tco2eq_ha"] = albedo_df["albedo_change"] * GWP_ALBED
 albedo_df["albedo_emissions_tco2eq"] = (
     albedo_df["albedo_emissions_tco2eq_ha"] * albedo_df["area_ha"]
 )
-
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
-albedo_df.to_feather(PATH_PROCESSED_TABLES / r"table_10_emissions_albedo.feather")
+# Write feather file
+albedo_df.to_feather(PATH_PROCESSED_TABLES / "table_10_emissions_albedo.feather")
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-albedo_df.to_sql(
-    name="table_10_emissions_albedo", con=con, if_exists="replace", index=False
-)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    albedo_df.to_sql(
+        name="table_10_emissions_albedo",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

@@ -15,35 +15,13 @@ import janitor
 import pandas as pd
 import numpy as np
 
-# -----------------------------------------------------------------------------
-# Paths
-# -----------------------------------------------------------------------------
-# File paths and sheet names
-# Home directory
-PATH_HOME = Path.home()
-
-# Data directory
-PATH_DATA = r"esi_cimmyt"
-
-# CIMMYT costs and revenues dataset (version  6.0)
-PATH_CIMMYT_MEXICO_ECONOMICS = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\6.-Costs and revenues_2012-2022_02.xlsx"
+from paths import (
+    PATH_CIMMYT_ECONOMICS,
+    SHEET_CIMMYT_ECONOMICS,
+    PATH_AGRONOMIC_FEATURES,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-SHEET_CIMMYT_MEXICO_ECONOMICS = "Data"
-
-# Agronomic features table
-PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
-)
-
-# Export path for processed tables
-PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -65,7 +43,7 @@ YEAR_COL = ["year"]
 # -----------------------------------------------------------------------------
 # Load dataset on costs and revenues
 economics_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_ECONOMICS, sheet_name=SHEET_CIMMYT_MEXICO_ECONOMICS, header=1
+    io=PATH_CIMMYT_ECONOMICS, sheet_name=SHEET_CIMMYT_ECONOMICS, header=1
 )
 
 # Load plot areas
@@ -196,17 +174,19 @@ economics_df_metrics.replace([np.inf, -np.inf], np.nan, inplace=True)
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
+# Write feather file
 economics_df_metrics.to_feather(
-    PATH_PROCESSED_TABLES / r"table_04_economic_features.feather"
+    PATH_PROCESSED_TABLES / "table_04_economic_features.feather"
 )
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-economics_df_metrics.to_sql(
-    name="table_04_economic_features", con=con, if_exists="replace", index=False
-)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    economics_df_metrics.to_sql(
+        name="table_04_economic_features",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

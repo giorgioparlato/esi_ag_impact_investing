@@ -21,51 +21,16 @@ import janitor
 import pandas as pd
 import numpy as np
 
-# -----------------------------------------------------------------------------
-# Paths
-# -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
-
-# Data directory
-PATH_DATA = r"esi_cimmyt"
-
-# Path to enriched reference table
-PATH_REF_TABLE_ENRICHED = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_02_reference_enriched.feather"
+from paths import (
+    PATH_REF_TABLE_ENRICHED,
+    PATH_AGRONOMIC_FEATURES,
+    PATH_AG_INPUTS,
+    PATH_CROP_RESIDUES,
+    PATH_CIMMYT_ACTIVITIES,
+    SHEET_CIMMYT_ACTIVITIES,
+    PATH_PROCESSED_TABLES,
+    PATH_SQL_DB,
 )
-
-# Path to agronomic features table
-PATH_AGRONOMIC_FEATURES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_03_agronomic_features.feather"
-)
-
-# Path to agricultural inputs table
-PATH_AG_INPUTS = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\processed\tables\table_07_emissions_ag_inputs.feather"
-)
-
-# Path to crop residues table
-PATH_CROP_RESIDUES = (
-    PATH_HOME / PATH_DATA / r"data\processed\tables\table_08_emissions_residues.feather"
-)
-
-# CIMMYT dataset on field activities
-PATH_CIMMYT_MEXICO_ACTIVITIES = (
-    PATH_HOME
-    / PATH_DATA
-    / r"data\raw\cimmyt\dataverse_files\3._Labor_harvest_activities_2012-2022_02.xlsx"
-)
-
-SHEET_CIMMYT_MEXICO_ACTIVITIES = "Data"
-
-# Export path for processed tables
-PATH_EXPORT_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -191,8 +156,8 @@ MANURE_TYPES = {
 # -----------------------------------------------------------------------------
 # Activities dataset
 activities_df_raw = pd.read_excel(
-    io=PATH_CIMMYT_MEXICO_ACTIVITIES,
-    sheet_name=SHEET_CIMMYT_MEXICO_ACTIVITIES,
+    io=PATH_CIMMYT_ACTIVITIES,
+    sheet_name=SHEET_CIMMYT_ACTIVITIES,
     header=1,
 )
 
@@ -474,13 +439,17 @@ soc_df_final = soc_df_final.reindex(columns=new_index)
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
-soc_df_final.to_feather(PATH_EXPORT_TABLES / r"table_09_emissions_soc.feather")
+# Write feather file
+soc_df_final.to_feather(PATH_PROCESSED_TABLES / "table_09_emissions_soc.feather")
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    soc_df_final.to_sql(
+        name="table_09_emissions_soc",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
-soc_df_final.to_sql(
-    name="table_09_emissions_soc", con=con, if_exists="replace", index=False
-)
-exit("Execution complete.")
+# END
+print("Execution complete.")

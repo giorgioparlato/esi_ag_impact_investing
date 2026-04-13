@@ -21,17 +21,7 @@ import numpy as np
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
-# Home directory
-PATH_HOME = Path.home()
-
-# Data directory
-PATH_DATA = r"esi_cimmyt"
-
-# Processed tables
-PATH_PROCESSED_TABLES = PATH_HOME / PATH_DATA / r"data\processed\tables"
-
-# SQL DB connection
-PATH_SQL_DB = PATH_HOME / PATH_DATA / r"data\processed\sql_db\cimmyt.db"
+from paths import PATH_PROCESSED_TABLES, PATH_SQL_DB
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -172,13 +162,17 @@ df_scores = compute_esi_intensity_vars(df_scores)
 # -----------------------------------------------------------------------------
 # Export data
 # -----------------------------------------------------------------------------
-# Write as feather file
-df_scores.to_feather(PATH_PROCESSED_TABLES / r"table_12_esi_scores.feather")
+# Write feather file
+df_scores.to_feather(PATH_PROCESSED_TABLES / "table_12_esi_scores.feather")
 
 # Write to SQL database
-con = sqlite3.connect(PATH_SQL_DB)
-
-df_scores.to_sql(name="table_12_esi_scores", con=con, if_exists="replace", index=False)
+with sqlite3.connect(PATH_SQL_DB) as con:
+    df_scores.to_sql(
+        name="table_12_esi_scores",
+        con=con,
+        if_exists="replace",
+        index=False,
+    )
 
 # END
-exit("Execution complete.")
+print("Execution complete.")

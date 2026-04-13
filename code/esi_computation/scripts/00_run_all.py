@@ -1,16 +1,18 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-# Get the scripts directory
-scripts_dir = Path(__file__).parent
+# Directory containing this runner and the pipeline scripts
+scripts_dir = Path(__file__).resolve().parent
 
-# List of scripts to run in sequence
+# Scripts to run in sequence
 scripts = [
     "01_reference_table.py",
     "02_geospatial_operations.py",
     "03_agronomic_features.py",
     "04_economic_features.py",
+    "water_imputation.py",
     "05_water_features.py",
     "06_emissions_fuel.py",
     "07_emissions_inputs.py",
@@ -25,19 +27,42 @@ scripts = [
 def run_scripts():
     """Execute all scripts in sequence."""
 
+    failures = []
+
     for i, script in enumerate(scripts, 1):
         script_path = scripts_dir / script
+
         print(f"\n{'=' * 60}")
         print(f"Running ({i}/{len(scripts)}): {script}")
         print(f"{'=' * 60}\n")
 
-        result = subprocess.run([sys.executable, str(script_path)], cwd=scripts_dir)
+        env = os.environ.copy()
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            str(scripts_dir)
+            if not existing_pythonpath
+            else str(scripts_dir) + os.pathsep + existing_pythonpath
+        )
 
-    # Summary
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            cwd=scripts_dir,
+            env=env,
+        )
+
+        if result.returncode != 0:
+            failures.append(script)
+            print(f"\nScript failed: {script}")
+            break
+
     print(f"\n{'=' * 60}")
     print("PIPELINE EXECUTION COMPLETE")
     print(f"{'=' * 60}")
-    print(f"✓ All {len(scripts)} scripts executed!")
+
+    if failures:
+        print(f"Pipeline stopped due to error in: {failures[0]}")
+    else:
+        print(f"All {len(scripts)} scripts executed successfully.")
 
 
 if __name__ == "__main__":
