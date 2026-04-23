@@ -14,7 +14,6 @@ Date: 2026-04-23
 # Imports
 # -----------------------------------------------------------------------------
 import sqlite3
-from pathlib import Path
 import pandas as pd
 import numpy as np
 
@@ -59,8 +58,10 @@ SELECT
     table_05_water_features.irr_equip_ml_tco2eq,
     table_05_water_features.irr_app_ml_tco2eq,
 
-    table_09_emissions_soc.soc_delta_t_co2eq
-
+    table_09_emissions_soc.soc_delta_t_co2eq,
+    table_10_emissions_albedo.albedo_emissions_tco2eq_ha,
+    table_10_emissions_albedo.albedo_emissions_tco2eq
+    
 FROM table_01_reference
 
 LEFT JOIN table_03_agronomic_features USING (practice_id)
@@ -69,6 +70,7 @@ LEFT JOIN table_06_emissions_fuel USING (practice_id)
 LEFT JOIN table_07_emissions_ag_inputs USING (practice_id)
 LEFT JOIN table_08_emissions_residues USING (practice_id)
 LEFT JOIN table_09_emissions_soc USING (practice_id)
+LEFT JOIN table_10_emissions_albedo USING (practice_id)
 """
 
 # -----------------------------------------------------------------------------
@@ -99,6 +101,9 @@ ghg_fluxes = [
 
 # GHG fluxes except SOC
 ghg_fluxes_no_soc = [col for col in ghg_fluxes if col != "soc_delta_t_co2eq"]
+ghg_fluxes_no_fuel_no_soc = [
+    col for col in ghg_fluxes if col not in ["fuel_cons_t_co2eq", "soc_delta_t_co2eq"]
+]
 
 # Rows must have at least 1 non-null GHG flux
 valid_rows = df[ghg_fluxes].notna().any(axis=1)
@@ -155,6 +160,11 @@ is_soc_only_nonnegative = df[ghg_fluxes_no_soc].isna().all(axis=1) & df[
 ].ge(0)
 is_soc_invalid = is_soc_missing | is_soc_only_nonnegative
 
+# Exceptions for no-fuel emissions
+is_nofuel_effectively_empty = df[ghg_fluxes_no_fuel_no_soc].isna().all(axis=1) & df[
+    "soc_delta_t_co2eq"
+].ge(0)
+
 # Assemble invalidation masks
 full_invalid_conditions = [
     is_fuel_missing,
@@ -178,7 +188,8 @@ nofuel_invalid_conditions = [
     is_amount_invalid,
     is_org_app_invalid,
     is_crop_residues_missing,
-    is_soc_invalid,
+    is_soc_missing,
+    is_nofuel_effectively_empty,
 ]
 
 mask_full_invalid = np.logical_or.reduce(full_invalid_conditions)
