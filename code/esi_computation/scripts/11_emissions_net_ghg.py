@@ -2,11 +2,12 @@
 Computation of net GHG emissions based on conditional logic.
 Main operations:
     - query input data from the SQL database
+    - define invalidation conditions
     - calculate the net GHG emissions
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
+Date: 2026-04-23
 """
 
 # -----------------------------------------------------------------------------
@@ -58,9 +59,7 @@ SELECT
     table_05_water_features.irr_equip_ml_tco2eq,
     table_05_water_features.irr_app_ml_tco2eq,
 
-    table_09_emissions_soc.soc_delta_t_co2eq,
-    table_10_emissions_albedo.albedo_emissions_tco2eq_ha,
-    table_10_emissions_albedo.albedo_emissions_tco2eq
+    table_09_emissions_soc.soc_delta_t_co2eq
 
 FROM table_01_reference
 
@@ -70,7 +69,6 @@ LEFT JOIN table_06_emissions_fuel USING (practice_id)
 LEFT JOIN table_07_emissions_ag_inputs USING (practice_id)
 LEFT JOIN table_08_emissions_residues USING (practice_id)
 LEFT JOIN table_09_emissions_soc USING (practice_id)
-LEFT JOIN table_10_emissions_albedo USING (practice_id)
 """
 
 # -----------------------------------------------------------------------------
@@ -99,68 +97,92 @@ ghg_fluxes = [
     "soc_delta_t_co2eq",
 ]
 
+# GHG fluxes except SOC
+ghg_fluxes_no_soc = [col for col in ghg_fluxes if col != "soc_delta_t_co2eq"]
+
 # Rows must have at least 1 non-null GHG flux
 valid_rows = df[ghg_fluxes].notna().any(axis=1)
 
-# Default formulas for net GHG emissions
+# Default formula for net GHG emissions
 net_ghg_emissions_formula = df[ghg_fluxes].sum(axis=1, skipna=True).where(valid_rows)
 
-# Conditions defining exceptions where net GHG emissions should be missing
-net_ghg_emissions_conditions = [
-    # Exceptions for fuel consumption
-    df.fuel_cons_status.str.contains("UNKNOWN|MISSING", na=False),
-    # Exceptions for irrigation equipment and application
-    df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_equip_ml_tco2eq.isna(),
-    df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_app_ml_tco2eq.isna(),
-    # Exceptions for agricultural inputs
-    df.flag_missing_emissions_syn_prod.str.contains(
-        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
-    ),
-    df.flag_missing_emissions_syn_tran.str.contains(
-        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
-    ),
-    df.flag_missing_emissions_syn_app.str.contains(
-        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
-    ),
-    ~df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True),
-    ~df.flag_missing_emissions_org_app.isin(
-        ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
-    )
-    & df.flag_missing_emissions_org_app.str.contains(
-        r"\bMISSING Q\b", na=False, regex=True
-    ),
-    # Exceptions for crop residues
-    df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
-    # Exceptions for SOC
-    df.soc_delta_t_co2eq.isna(),
-]
-
-# Choices for GHG emissions
-net_ghg_emissions_choices = [
-    # Choices for fuel consumption
-    np.nan,
-    # Choices for irrigation application and equipment
-    np.nan,
-    np.nan,
-    # Choices for agricultural inputs
-    np.nan,
-    np.nan,
-    np.nan,
-    np.nan,
-    np.nan,
-    # Choices for crop residues
-    np.nan,
-    # Choices for SOC
-    np.nan,
-]
-
-mask_full_invalid = np.logical_or.reduce(net_ghg_emissions_conditions)
-
-mask_nofuel_invalid = np.logical_or.reduce(
-    net_ghg_emissions_conditions[1:]  # drop fuel condition
+# Exceptions
+# Exceptions for fuel consumption
+is_fuel_missing = df["fuel_cons_status"].str.contains(
+    r"UNKNOWN|MISSING", na=False, regex=True
 )
+
+# Exceptions for irrigation equipment and application
+is_irrigation_pressurized = df["irrigation_types"].str.contains(
+    r"DRIP|SPRINKLER", na=False, regex=True
+)
+is_irr_equip_missing = is_irrigation_pressurized & df["irr_equip_ml_tco2eq"].isna()
+is_irr_app_missing = is_irrigation_pressurized & df["irr_app_ml_tco2eq"].isna()
+
+# Exceptions for agricultural inputs
+is_syn_prod_factor_missing = df["flag_missing_emissions_syn_prod"].str.contains(
+    r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+)
+is_syn_tran_factor_missing = df["flag_missing_emissions_syn_tran"].str.contains(
+    r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+)
+is_syn_app_factor_missing = df["flag_missing_emissions_syn_app"].str.contains(
+    r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+)
+
+amount_reported_only = df["flag_imputed_amount"].str.contains(
+    r"\bREPORTED ONLY\b", na=False, regex=True
+)
+is_amount_invalid = ~amount_reported_only
+
+org_app_status_ok = df["flag_missing_emissions_org_app"].isin(
+    ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
+)
+org_app_missing_quantity = df["flag_missing_emissions_org_app"].str.contains(
+    r"\bMISSING Q\b", na=False, regex=True
+)
+is_org_app_invalid = ~org_app_status_ok & org_app_missing_quantity
+
+# Exceptions for crop residues
+is_crop_residues_missing = df["flag_total_pct"].isin(
+    ["MISSING ONLY", "PARTIALLY MISSING"]
+)
+
+# Exceptions for SOC
+is_soc_missing = df["soc_delta_t_co2eq"].isna()
+is_soc_only_nonnegative = df[ghg_fluxes_no_soc].isna().all(axis=1) & df[
+    "soc_delta_t_co2eq"
+].ge(0)
+is_soc_invalid = is_soc_missing | is_soc_only_nonnegative
+
+# Assemble invalidation masks
+full_invalid_conditions = [
+    is_fuel_missing,
+    is_irr_equip_missing,
+    is_irr_app_missing,
+    is_syn_prod_factor_missing,
+    is_syn_tran_factor_missing,
+    is_syn_app_factor_missing,
+    is_amount_invalid,
+    is_org_app_invalid,
+    is_crop_residues_missing,
+    is_soc_invalid,
+]
+
+nofuel_invalid_conditions = [
+    is_irr_equip_missing,
+    is_irr_app_missing,
+    is_syn_prod_factor_missing,
+    is_syn_tran_factor_missing,
+    is_syn_app_factor_missing,
+    is_amount_invalid,
+    is_org_app_invalid,
+    is_crop_residues_missing,
+    is_soc_invalid,
+]
+
+mask_full_invalid = np.logical_or.reduce(full_invalid_conditions)
+mask_nofuel_invalid = np.logical_or.reduce(nofuel_invalid_conditions)
 
 df["net_ghg_emissions_wfuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_invalid)
 
@@ -169,8 +191,15 @@ df["net_ghg_emissions_tco2eq"] = (
 ).mask(mask_nofuel_invalid)
 
 # Per hectare net GHG emissions
-df["net_ghg_emissions_tco2eq_ha"] = df.net_ghg_emissions_tco2eq / df.area_ha
-df["net_ghg_emissions_wfuel_tco2eq_ha"] = df.net_ghg_emissions_wfuel_tco2eq / df.area_ha
+valid_area = df["area_ha"].gt(0)
+
+df["net_ghg_emissions_tco2eq_ha"] = (df.net_ghg_emissions_tco2eq / df.area_ha).where(
+    valid_area
+)
+
+df["net_ghg_emissions_wfuel_tco2eq_ha"] = (
+    df.net_ghg_emissions_wfuel_tco2eq / df.area_ha
+).where(valid_area)
 
 # -----------------------------------------------------------------------------
 # Export data
