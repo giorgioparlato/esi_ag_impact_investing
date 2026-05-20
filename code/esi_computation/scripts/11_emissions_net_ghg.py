@@ -42,6 +42,7 @@ SELECT
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_tran,
     table_07_emissions_ag_inputs.flag_missing_emissions_org_app,
     table_07_emissions_ag_inputs.flag_imputed_amount,
+    table_07_emissions_ag_inputs.flag_all_fert_na,
     
     table_07_emissions_ag_inputs.synth_input_prod_t_co2eq,
     table_07_emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
@@ -137,6 +138,7 @@ net_ghg_emissions_conditions = [
     na_syn_app,
     na_org_app,
     na_imputed_amount,
+    df.flag_all_fert_na.fillna(0).astype(bool),
     # Exceptions for crop residues
     df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
     # Exceptions for SOC
@@ -151,6 +153,7 @@ net_ghg_emissions_choices = [
     np.nan,
     np.nan,
     # Choices for agricultural inputs
+    np.nan,
     np.nan,
     np.nan,
     np.nan,
