@@ -503,7 +503,7 @@ fert_specific = {
 
 mask_fert_kg = (
     mask_synth
-    & inputs_df_imp_estimation_syn["product_category"].eq("FERTILIZER")
+    & inputs_df_imp_estimation_syn["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"]) ## later on we include foliar and biofertilizers in the other synthetic inputs (if product category is chemichal)
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
 
@@ -536,10 +536,12 @@ inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "units_ha"] = "KG_HA"
 
 # Assign conversion factor for Bayfolan Forte based on density to convert from L_HA to KG_HA
 # Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/product-msds/BAYFOLAN-FORTE-Hoja-de-seguridad-2024.pdf
-
-inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"] = (
-    inputs_df_imp_estimation_syn.loc[mask_bayfolan_l, "amount_of_product_applied"]
-    * 1.22
+inputs_df_imp_estimation_syn.loc[
+    mask_bayfolan_l, ["amount_of_product_applied", "amount_of_product_applied_imputed"]
+] = (
+    inputs_df_imp_estimation_syn.loc[
+        mask_bayfolan_l, ["amount_of_product_applied", "amount_of_product_applied_imputed"]
+    ] * 1.22
 )
 
 # Assign nitrogen content percentage for all Bayfolan Forte in KG_HA
@@ -550,7 +552,6 @@ mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
 ) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 
 inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n"] = 11.47
-###
 
 # Compute emissions from synthetic input production
 inputs_df_imp_estimation_syn["synth_input_prod_t_co2eq_ha"] = (
@@ -578,7 +579,7 @@ fert_tran_dist_specific = {
 mask_fert_kg = (
     mask_synth
     & inputs_df_imp_estimation_syn["product_category"].isin(
-        ["FERTILIZER", "FOLIAR FERTILIZER"]
+        ["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"] ## later on we include biofertilizers in the other synthetic inputs (if product category is chemichal)
     )
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
@@ -1142,6 +1143,40 @@ def imputation_status(x: pd.Series) -> str:
 # Group and aggregate variables selectively
 inputs_df_aggregation = inputs_df_imp_flags.copy()
 
+# Prep to output total amounts of inputs in kg/ha
+is_synth_fert = (
+    inputs_df_aggregation["kind_of_product_imp"] == "QUIMICO"
+) & inputs_df_aggregation["product_category"].isin(
+    ["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"]
+)
+inputs_df_aggregation["synth_fert_amount_kg_ha"] = np.where(
+    is_synth_fert, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
+)
+
+is_pesticide = inputs_df_aggregation["product_category"].isin(
+    ["INSECTICIDE", "HERBICIDE", "FUNGICIDE"]
+)
+inputs_df_aggregation["pesticide_amount_kg_ha"] = np.where(
+    is_pesticide, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
+)
+
+inputs_df_aggregation["org_fert_amount_kg_ha"] = (
+    inputs_df_aggregation["dry_organic_amount_t_ha"] * 1000
+)
+
+# Helper function for aggregating pesticide and fertilizer amounts (more refined than APPLICABLE_KIND_SYNTHETIC)
+def sum_where(series, mask):
+    subset = series[mask]
+    if len(subset) == 0:
+        return np.nan
+    if subset.isna().any():
+        return np.nan
+    return subset.sum()
+
+# Storing masks for aggregation function can access them
+inputs_df_aggregation["is_synth_fert"] = is_synth_fert
+inputs_df_aggregation["is_pesticide"] = is_pesticide
+
 group_cols = ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
 
 APPLICABLE_KIND_SYNTHETIC = "QUIMICO"
@@ -1197,6 +1232,29 @@ inputs_df_aggregation = (
                 x,
                 inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
                 APPLICABLE_KIND_ORGANIC,
+            ),
+        ),
+        # Input amounts
+        synth_fert_amount_kg_ha=(
+            "amount_of_product_applied_imputed",
+            lambda x: sum_where(
+                x,
+                inputs_df_aggregation.loc[x.index, "is_synth_fert"],
+            ),
+        ),
+        org_fert_dry_amount_kg_ha=(
+            "org_fert_amount_kg_ha",
+            lambda x: sum_applicable_if_all_available(
+                x,
+                inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
+                APPLICABLE_KIND_ORGANIC,
+            ),
+        ),
+        pesticide_amount_kg_ha=(
+            "amount_of_product_applied_imputed",
+            lambda x: sum_where(
+                x,
+                inputs_df_aggregation.loc[x.index, "is_pesticide"],
             ),
         ),
         # Flags
@@ -1280,6 +1338,9 @@ new_index = [
     "synth_input_tran_dist_t_co2eq",
     "synth_input_app_t_co2eq",
     "org_fert_app_t_co2eq",
+    "pesticide_amount_kg_ha",
+    "synth_fert_amount_kg_ha",
+    "org_fert_dry_amount_kg_ha",
 ]
 
 inputs_df_final = inputs_df_final.reindex(columns=new_index)
