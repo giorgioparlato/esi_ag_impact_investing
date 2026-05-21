@@ -225,7 +225,7 @@ fuel_df_agg = (
 # Merge with areas from the agronomic dataframe
 areas_df = areas_df.drop_duplicates(keep=False).copy()
 fuel_df_totals = fuel_df_agg.copy()
-fuel_df_totals = fuel_df_totals.merge(areas_df, on=["practice_id", "year"], how="left")
+fuel_df_totals = fuel_df_totals.merge(areas_df, on="practice_id", how="left")
 
 # Compute total fuel consumption
 fuel_df_totals["fuel_cons_t_co2eq"] = (
