@@ -169,7 +169,6 @@ soc_df_ref = pd.read_feather(
         "plot_id",
         "logbook_id",
         "practice_id",
-        "year",
         "climate_class_corrected",
         "soc_ref",
     ],
@@ -178,7 +177,7 @@ soc_df_ref = pd.read_feather(
 # Areas
 soc_agronomic_df = pd.read_feather(
     PATH_AGRONOMIC_FEATURES,
-    columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year", "area_ha"],
+    columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "area_ha"],
 )
 
 # Organic fertilizers categories and nitrogen amounts
@@ -189,7 +188,6 @@ soc_ag_inputs_df = pd.read_feather(
         "plot_id",
         "logbook_id",
         "practice_id",
-        "year",
         "categories_organic",
         "nitrogen_org_t_ha",
     ],
@@ -203,7 +201,6 @@ soc_crop_res_df = pd.read_feather(
         "plot_id",
         "logbook_id",
         "practice_id",
-        "year",
         "residues_returned_perc_harvest",
         "maize_residues_returned_dm_t_ha",
     ],
@@ -273,7 +270,7 @@ soc_tillage_df_agg = soc_tillage_df_agg.groupby(
 ).agg(tillage=("tillage", join_unique), tillage_count=("tillage", "nunique"))
 
 # Merge
-labels = ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
+labels = ["farmer_id", "plot_id", "logbook_id", "practice_id"]
 soc_df_merged = soc_df_ref.copy()
 soc_df_merged = soc_df_merged.merge(soc_agronomic_df, on=labels, how="left")
 soc_df_merged = soc_df_merged.merge(soc_crop_res_df, on=labels, how="left")
