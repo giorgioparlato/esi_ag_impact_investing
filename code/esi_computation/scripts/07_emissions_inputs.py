@@ -1234,7 +1234,7 @@ inputs_df_aggregation = (
 inputs_df_totals = inputs_df_aggregation.copy()
 
 inputs_df_totals = inputs_df_totals.merge(
-    areas_df, on=["practice_id", "year"], how="left"
+    areas_df, on="practice_id", how="left"
 )
 
 # Compute total emission estimates
