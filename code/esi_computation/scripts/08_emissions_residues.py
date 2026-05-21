@@ -312,7 +312,7 @@ residues_df_agg = residues_df_agg.groupby(
 
 # Merge with agronomic data
 residues_df_merge = residues_df_agg.merge(
-    agronomic_df, on=["practice_id", "year"], how="left"
+    agronomic_df, on="practice_id", how="left"
 )
 
 residues_df_emissions = residues_df_merge.copy()
