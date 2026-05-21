@@ -85,7 +85,7 @@ org_inputs_df_raw = pd.read_excel(
 
 # Load plot areas
 areas_df = pd.read_feather(
-    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "year", "area_ha"]
+    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"]
 )
 
 # -----------------------------------------------------------------------------
