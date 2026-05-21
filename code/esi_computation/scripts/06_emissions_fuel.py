@@ -85,7 +85,7 @@ ids_year_df = pd.read_feather(
 
 # Load plot areas
 areas_df = pd.read_feather(
-    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "year", "area_ha"]
+    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"]
 )
 
 # -----------------------------------------------------------------------------
