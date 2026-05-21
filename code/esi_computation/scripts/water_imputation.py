@@ -222,7 +222,7 @@ df = df.merge(
 # ---- Merge agronomic (area, yield) ----
 df = df.merge(
     agronomic_df[["practice_id", "year", "area_ha"]],
-    on=["practice_id", "year"],
+    on="practice_id",
     how="left",
 )
 
