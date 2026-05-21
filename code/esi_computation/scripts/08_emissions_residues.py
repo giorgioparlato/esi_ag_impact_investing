@@ -133,7 +133,6 @@ agronomic_df = pd.read_feather(
     PATH_AGRONOMIC_FEATURES,
     columns=[
         "practice_id",
-        "year",
         "area_ha",
         "maize_grain_yield_t_ha",
         "maize_forage_yield_t_ha",
