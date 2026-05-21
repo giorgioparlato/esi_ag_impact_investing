@@ -56,7 +56,7 @@ veg_type_df = pd.read_feather(
 # Dataframe storing plot areas
 areas_df = pd.read_feather(
     PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather",
-    columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year", "area_ha"],
+    columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "area_ha"],
 )
 
 # -----------------------------------------------------------------------------
@@ -65,7 +65,7 @@ areas_df = pd.read_feather(
 # Merge dataframes above
 albedo_df = veg_type_df.merge(
     areas_df,
-    on=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"],
+    on=["farmer_id", "plot_id", "logbook_id", "practice_id"],
     how="inner",
 )
 
