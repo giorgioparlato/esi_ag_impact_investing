@@ -406,7 +406,7 @@ inputs_df_imp_moisture = inputs_df_imp_nitrogen.copy()
 
 # Filter for organic products only
 cond_organic = (
-    inputs_df_imp_moisture["kind_of_product"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
+    inputs_df_imp_moisture["kind_of_product_imp"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
 )
 
 # Count frequency of moisture values by product name
