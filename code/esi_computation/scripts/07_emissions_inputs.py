@@ -249,7 +249,7 @@ inputs_df_imp_product["kind_of_product_imp"] = inputs_df_imp_product["kind_of_pr
 # if product_category is BIOFERTILIZER, set kind_of_product_imp to BIOFERTILIZANTE
 inputs_df_imp_product.loc[
     inputs_df_imp_product["product_category"] == "BIOFERTILIZER", "kind_of_product_imp"
-] = "BIOLOGICO/ETOLOGICO/ORGANICO"
+] = "BIOFERTILIZANTE"
 
 # Fill by product name
 inputs_df_imp_product.loc[
