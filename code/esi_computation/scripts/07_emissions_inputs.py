@@ -249,7 +249,7 @@ inputs_df_imp_product["kind_of_product_imp"] = inputs_df_imp_product["kind_of_pr
 # if product_category is BIOFERTILIZER, set kind_of_product_imp to BIOFERTILIZANTE
 inputs_df_imp_product.loc[
     inputs_df_imp_product["product_category"] == "BIOFERTILIZER", "kind_of_product_imp"
-] = "BIOFERTILIZANTE"
+] = "BIOLOGICO/ETOLOGICO/ORGANICO"
 
 # Fill by product name
 inputs_df_imp_product.loc[
@@ -445,7 +445,7 @@ inputs_df_imp_estimation_syn = inputs_df_imp_moisture.copy()
 
 # Non-organic / non-"other" synthetic inputs
 mask_synth = ~inputs_df_imp_estimation_syn["kind_of_product_imp"].isin(
-    ["BIOLOGICO/ETOLOGICO/ORGANICO", "BIOFERTILIZANTE", "OTRO"]
+    ["BIOLOGICO/ETOLOGICO/ORGANICO", "OTRO"]
 )
 
 # Initialize column
