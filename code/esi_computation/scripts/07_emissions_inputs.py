@@ -659,7 +659,6 @@ mask_n_inputs = (
             "FUNGICIDE",
             "HERBICIDE",
             "FOLIAR FERTILIZER",
-            "BIOFERTILIZER",
         ]
     )
     & inputs_df_imp_estimation_syn["product_name_applied"].ne("UREA")
