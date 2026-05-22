@@ -246,6 +246,11 @@ most_common_categories = (
 # Create column for imputation
 inputs_df_imp_product["kind_of_product_imp"] = inputs_df_imp_product["kind_of_product"]
 
+# if product_category is BIOFERTILIZER, set kind_of_product_imp to BIOFERTILIZANTE
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["product_category"] == "BIOFERTILIZER", "kind_of_product_imp"
+] = "BIOFERTILIZANTE"
+
 # Fill by product name
 inputs_df_imp_product.loc[
     inputs_df_imp_product["kind_of_product"].isna()
