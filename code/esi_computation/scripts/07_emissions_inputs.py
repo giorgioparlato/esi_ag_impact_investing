@@ -294,6 +294,11 @@ inputs_df_imp_product.loc[
     "kind_of_product_imp",
 ] = inputs_df_imp_product["product_category"].map(most_common_categories)
 
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["product_name_applied"].isin(LIQUID_BIOFERT_N_MG_L),
+    "kind_of_product_imp",
+] = "BIOLOGICO/ETOLOGICO/ORGANICO"
+
 # Impute missing amounts by product name or category and units
 inputs_df_imp_amount = inputs_df_imp_product.copy()
 imputation_column = "amount_of_product_applied"
