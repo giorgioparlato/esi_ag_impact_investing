@@ -777,7 +777,7 @@ inputs_df_imp_estimation_org["amount_harmonized_t_ha"] = (
 )
 
 cond_organic = (
-    inputs_df_imp_estimation_org["kind_of_product"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
+    inputs_df_imp_estimation_org["kind_of_product_imp"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
 )
 
 cond_humid = (
