@@ -251,6 +251,35 @@ inputs_df_imp_product.loc[
     inputs_df_imp_product["product_category"] == "BIOFERTILIZER", "kind_of_product_imp"
 ] = "BIOFERTILIZANTE"
 
+# Introduce mapping for some of most common biofertilizers we can include
+BIOFERT_SUBTYPE_MAP = {
+    # Mycorrhizal inoculants (AMF) and AZOSPIRILLUM  — no direct N inputs (Lazcano et al. 2014)
+    "MICORRIZA INIFAP":      "inoculant",
+    "MICORRIZA":             "inoculant",
+    "MICORRIZAS":            "inoculant",
+    "AZOSPIRILLUM":          "inoculant",
+    "BIOL":                   "liquid_biofertilizer",
+    "LIXIVIADO DE LOMBRIZ": "liquid_biofertilizer",
+}
+
+INOCULANT_NAMES = {
+    name for name, sub in BIOFERT_SUBTYPE_MAP.items() if sub == "inoculant"
+}
+
+# Biofert nitrogen content mg/L for liquid biofertilizers, to be applied to convert amounts to kg N for emissions estimation
+# Source BIOL: Gil Ramírez, Luis Arturo, Frans Allinson Leiva Cabrera, Martha Karina Lezama Escobedo, Cecilia Betzabet Bardales Vásquez, and Carlos Alberto León Torres. “Biofertilizante ‘biol’: caracterización física, química y microbiológica.” Revista Alfa 7, no. 20 (2023): 336–45. https://doi.org/10.33996/revistaalfa.v7i20.219.
+# Source LIXIVIADO DE LOMBRIZ: Valenzuela, Alma, Alfredo Granados-Olivas, Marisela Soto Padilla, and Edith Flores Tavizón. “Composición Mineral de Lixiviados (Biofertilizante) de Lombriz Roja Californiana: Mineral Composition of Leachate (Biofertilizer) of Californian Red Worm.” TECNOCIENCIA Chihuahua 14 (August 2021): 751. https://doi.org/10.54167/tch.v14i3.751.
+LIQUID_BIOFERT_N_MG_L = {
+    "BIOL": 290,
+    "LIXIVIADO DE LOMBRIZ": 839, # average of different values on table 4
+}
+
+# common pack size for MICORRIZA INIFAP, the most common MICORRIZA product in the dataset is 1 kg, for the rest of inoculants we will assume 1 kg as well since we don't have more specific info: https://conlupa.com.mx/?p=431545
+
+# Transport/distribution EF applied to inoculants — NPK default from
+# Juárez-Hernández et al. 2019, Table A10 (kg CO2eq / kg product)
+EF_INOCULANT_TRAN_DIST_KG_CO2EQ_KG = 0.074
+
 # Fill by product name
 inputs_df_imp_product.loc[
     inputs_df_imp_product["kind_of_product"].isna()
