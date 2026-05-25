@@ -445,7 +445,7 @@ inputs_df_imp_estimation_syn = inputs_df_imp_moisture.copy()
 
 # Non-organic / non-"other" synthetic inputs
 mask_synth = ~inputs_df_imp_estimation_syn["kind_of_product_imp"].isin(
-    ["BIOLOGICO/ETOLOGICO/ORGANICO", "OTRO"]
+    ["BIOLOGICO/ETOLOGICO/ORGANICO", "BIOFERTILIZANTE", "OTRO"]
 )
 
 # Initialize column
