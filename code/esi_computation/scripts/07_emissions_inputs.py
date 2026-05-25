@@ -274,10 +274,6 @@ LIQUID_BIOFERT_N_MG_L = {
     "LIXIVIADO DE LOMBRIZ": 839, # average of different values on table 4
 }
 
-# Transport/distribution EF applied to inoculants — NPK default from
-# Juárez-Hernández et al. 2019, Table A10 (kg CO2eq / kg product)
-EF_INOCULANT_TRAN_DIST_KG_CO2EQ_KG = 0.074
-
 # Fill by product name
 inputs_df_imp_product.loc[
     inputs_df_imp_product["kind_of_product"].isna()
@@ -480,11 +476,9 @@ mask_synth = ~inputs_df_imp_estimation_syn["kind_of_product_imp"].isin(
     ["BIOLOGICO/ETOLOGICO/ORGANICO", "BIOFERTILIZANTE", "OTRO"]
 )
 
-# Inoculants — transport-only emissions, only when units are mass-like
-mask_inoculant = inputs_df_imp_estimation_syn["product_name_applied"].isin(INOCULANT_NAMES)
-
 # Convert PAQUETE_HA → KG_HA for inoculants (1 paquete ≈ 1 kg)
 # common pack size for MICORRIZA INIFAP, the most common MICORRIZA product in the dataset is 1 kg, for the rest of inoculants we will assume 1 kg as well since we don't have more specific info: https://conlupa.com.mx/?p=431545
+mask_inoculant = inputs_df_imp_estimation_syn["product_name_applied"].isin(INOCULANT_NAMES)
 mask_inoculant_paquete = mask_inoculant & inputs_df_imp_estimation_syn["units_ha"].eq("PAQUETE_HA")
 inputs_df_imp_estimation_syn.loc[mask_inoculant_paquete, "units_ha"] = "KG_HA"
 
@@ -878,6 +872,28 @@ inputs_df_imp_estimation_org.loc[cond_organic, "nitrogen_org_t_ha"] = (
     inputs_df_imp_estimation_org.loc[cond_organic, "dry_organic_amount_t_ha"]
     * inputs_df_imp_estimation_org.loc[cond_organic, "nitrogen_content_pct"].div(100)
 )
+
+# Liquid biofertilizer nitrogen: bypass the moisture/dry conversion and compute organic N directly from amount (L/HA) × literature N (mg/L).
+# Only L_HA rows produce an estimate; other units → no estimate (flagged as missing downstream).
+# Units check: (L/HA) × (mg/L) × 1e-9 = t N / HA.
+mask_liquid_biofert = (
+    inputs_df_imp_estimation_org["kind_of_product_imp"].eq("BIOLOGICO/ETOLOGICO/ORGANICO")
+    & inputs_df_imp_estimation_org["product_name_applied"].isin(LIQUID_BIOFERT_N_MG_L)
+    & inputs_df_imp_estimation_org["units_ha"].eq("L_HA")
+)
+
+n_mg_per_l = inputs_df_imp_estimation_org.loc[
+    mask_liquid_biofert, "product_name_applied"
+].map(LIQUID_BIOFERT_N_MG_L)
+
+inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "nitrogen_org_t_ha"] = (
+    inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "amount_of_product_applied_imputed"]
+    * n_mg_per_l
+    * 1e-9 # convert mg to tonne
+)
+
+# Tag the category column so aggregation/diagnostics can see them
+inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "category"] = "Liquid Biofertilizer"
 
 # Parameters
 # Emission factor for N2O emissions from N inputs
