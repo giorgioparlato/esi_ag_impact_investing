@@ -896,6 +896,11 @@ inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "nitrogen_org_t_ha"] = (
     * 1e-9 # convert mg to tonne
 )
 
+# inoculant organic nitrogen 0 - to have the flag show up as available
+mask_inoculant_org = inputs_df_imp_estimation_org["product_name_applied"].isin(INOCULANT_NAMES)
+inputs_df_imp_estimation_org.loc[mask_inoculant_org, "nitrogen_org_t_ha"] = 0.0
+inputs_df_imp_estimation_org.loc[mask_inoculant_org, "category"] = "Inoculant"
+
 # Tag the category column so aggregation/diagnostics can see them
 inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "category"] = "Liquid Biofertilizer"
 
