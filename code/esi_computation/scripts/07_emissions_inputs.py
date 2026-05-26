@@ -246,11 +246,6 @@ most_common_categories = (
 # Create column for imputation
 inputs_df_imp_product["kind_of_product_imp"] = inputs_df_imp_product["kind_of_product"]
 
-# if product_category is BIOFERTILIZER, set kind_of_product_imp to BIOFERTILIZANTE
-inputs_df_imp_product.loc[
-    inputs_df_imp_product["product_category"] == "BIOFERTILIZER", "kind_of_product_imp"
-] = "BIOFERTILIZANTE"
-
 # Introduce mapping for some of most common biofertilizers we can include
 BIOFERT_SUBTYPE_MAP = {
     # Mycorrhizal inoculants (AMF) and AZOSPIRILLUM  — no direct N inputs (Lazcano et al. 2014)
@@ -265,6 +260,11 @@ BIOFERT_SUBTYPE_MAP = {
 INOCULANT_NAMES = {
     name for name, sub in BIOFERT_SUBTYPE_MAP.items() if sub == "inoculant"
 }
+
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["product_name_applied"].isin(INOCULANT_NAMES),
+    "kind_of_product_imp",
+] = "BIOLOGICO/ETOLOGICO/ORGANICO"
 
 # Biofert nitrogen content mg/L for liquid biofertilizers, to be applied to convert amounts to kg N for emissions estimation
 # Source BIOL: Gil Ramírez, Luis Arturo, Frans Allinson Leiva Cabrera, Martha Karina Lezama Escobedo, Cecilia Betzabet Bardales Vásquez, and Carlos Alberto León Torres. “Biofertilizante ‘biol’: caracterización física, química y microbiológica.” Revista Alfa 7, no. 20 (2023): 336–45. https://doi.org/10.33996/revistaalfa.v7i20.219.
@@ -796,7 +796,7 @@ inputs_df_imp_estimation_org["dry_organic_amount_t_ha"] = np.select(
     default=np.nan,
 )
 
-# Map manure types to macro-categories (AI-generated)
+# Map manure types to macro-categories
 manure_mapping = {
     "ESTIERCOL DE BOVINO": "Cattle Manure",
     "ESTIERCOL DE GANADO MULAR": "Horses/Mules/Asses Manure",
@@ -829,8 +829,6 @@ manure_mapping = {
     "COMPOSTA CON ABONO DE BOVINO": "General Compost",
     "BOCASHI (ABONO ORGÁNICO FERMENTADO)": "General Compost",
     "SUPERMAGRO": "General Compost",
-    # "BIOFOL": "General Compost",
-    # "BIOL": "General Compost",
     "ABONO FOLIAR FERMENTADO": "General Compost",
 }
 
@@ -847,7 +845,7 @@ nitrogen_content = {
 }
 
 cond_organic = (
-    inputs_df_imp_estimation_org["kind_of_product"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
+    inputs_df_imp_estimation_org["kind_of_product_imp"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
 )
 
 # Initialize new columns to NaN to ensure non-biologico rows are clearly marked
