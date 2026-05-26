@@ -428,6 +428,12 @@ inputs_df_imp_nitrogen.loc[mask_all_nan_group, "nitrogen_n_imputed"] = (
     mean_per_category[mask_all_nan_group]
 )
 
+# Inoculants: no direct N input (Lazcano et al. 2014). 
+inputs_df_imp_nitrogen.loc[
+    inputs_df_imp_nitrogen["product_name_applied"].isin(INOCULANT_NAMES),
+    "nitrogen_n_imputed",
+] = 0.0
+
 # Impute missing values for moisture content to enable convertion to dry amounts downstream
 # We still have 250 missing values after
 inputs_df_imp_moisture = inputs_df_imp_nitrogen.copy()
