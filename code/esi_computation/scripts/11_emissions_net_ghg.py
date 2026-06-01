@@ -108,7 +108,7 @@ net_ghg_emissions_formula = df[ghg_fluxes].sum(axis=1, skipna=True).where(valid_
 # Conditions defining exceptions where net GHG emissions should be missing
 net_ghg_emissions_conditions = [
     # Exceptions for fuel consumption
-    df.fuel_cons_status.str.contains("UNKNOWN|MISSING", na=False),
+    df.fuel_cons_status.str.contains("UNKNOWN|MISSING|IMPUTED", na=False),
     # Exceptions for irrigation equipment and application
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
     & df.irr_equip_ml_tco2eq.isna(),
