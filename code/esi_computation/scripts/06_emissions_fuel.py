@@ -148,6 +148,18 @@ fuel_df_imputation.loc[mask_fuel_motorized, "fuel_consumption_l_ha_imputed"] = (
     .transform(lambda x: x.fillna(x.mean()))
 )
 
+# Non-motorized activities (known, non-NaN power_source that does not contain "MOTORIZED") legitimately consume zero fuel. Set the imputed value to 0 so
+# that practice-level aggregation returns 0 (not NaN) for NOT APPLICABLE-only practices, distinguishing "legitimately no fuel" from "missing data".
+
+mask_zero_fill = (
+fuel_df_imputation["power_source"].notna() 
+& ~mask_fuel_motorized
+& fuel_df_imputation["fuel_consumption_l_ha_imputed"].isna()
+)
+
+fuel_df_imputation.loc[mask_zero_fill, "fuel_consumption_l_ha_imputed"] = 0
+
+
 # Create flag indicating the status of fuel consumption values after imputation
 cond_not_applicable = ~fuel_df_imputation["power_source"].str.contains(
     "MOTORIZED", na=True
