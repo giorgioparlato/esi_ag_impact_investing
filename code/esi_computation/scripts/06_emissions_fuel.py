@@ -234,6 +234,12 @@ fuel_df_agg = (
     .reset_index()
 )
 
+# Only trust the practice-level fuel total when every activity is REPORTED and/or NOT APPLICABLE. Any IMPUTED, MISSING, or UNKNOWN token disqualifies.
+mask_fuel_invalid = fuel_df_agg["fuel_cons_status"].str.contains(
+"UNKNOWN|MISSING|IMPUTED", na=False
+)
+fuel_df_agg.loc[mask_fuel_invalid, ["fuel_cons_t_co2eq_ha"]] = np.nan
+
 # Merge with areas from the agronomic dataframe
 areas_df = areas_df.drop_duplicates(keep=False).copy()
 fuel_df_totals = fuel_df_agg.copy()
