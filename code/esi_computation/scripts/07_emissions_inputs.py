@@ -246,6 +246,34 @@ most_common_categories = (
 # Create column for imputation
 inputs_df_imp_product["kind_of_product_imp"] = inputs_df_imp_product["kind_of_product"]
 
+# Introduce mapping for some of most common biofertilizers we can include
+BIOFERT_SUBTYPE_MAP = {
+    # Mycorrhizal inoculants (AMF) and AZOSPIRILLUM  — no direct N inputs (Lazcano et al. 2014)
+    "MICORRIZA INIFAP":      "inoculant",
+    "MICORRIZA":             "inoculant",
+    "MICORRIZAS":            "inoculant",
+    "AZOSPIRILLUM":          "inoculant",
+    "BIOL":                   "liquid_biofertilizer",
+    "LIXIVIADO DE LOMBRIZ": "liquid_biofertilizer",
+}
+
+INOCULANT_NAMES = {
+    name for name, sub in BIOFERT_SUBTYPE_MAP.items() if sub == "inoculant"
+}
+
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["product_name_applied"].isin(INOCULANT_NAMES),
+    "kind_of_product_imp",
+] = "BIOLOGICO/ETOLOGICO/ORGANICO"
+
+# Biofert nitrogen content mg/L for liquid biofertilizers, to be applied to convert amounts to kg N for emissions estimation
+# Source BIOL: Gil Ramírez, Luis Arturo, Frans Allinson Leiva Cabrera, Martha Karina Lezama Escobedo, Cecilia Betzabet Bardales Vásquez, and Carlos Alberto León Torres. “Biofertilizante ‘biol’: caracterización física, química y microbiológica.” Revista Alfa 7, no. 20 (2023): 336–45. https://doi.org/10.33996/revistaalfa.v7i20.219.
+# Source LIXIVIADO DE LOMBRIZ: Valenzuela, Alma, Alfredo Granados-Olivas, Marisela Soto Padilla, and Edith Flores Tavizón. “Composición Mineral de Lixiviados (Biofertilizante) de Lombriz Roja Californiana: Mineral Composition of Leachate (Biofertilizer) of Californian Red Worm.” TECNOCIENCIA Chihuahua 14 (August 2021): 751. https://doi.org/10.54167/tch.v14i3.751.
+LIQUID_BIOFERT_N_MG_L = {
+    "BIOL": 290,
+    "LIXIVIADO DE LOMBRIZ": 839, # average of different values on table 4
+}
+
 # Fill by product name
 inputs_df_imp_product.loc[
     inputs_df_imp_product["kind_of_product"].isna()
@@ -259,6 +287,11 @@ inputs_df_imp_product.loc[
     & inputs_df_imp_product["product_category"].isin(most_common_categories.index),
     "kind_of_product_imp",
 ] = inputs_df_imp_product["product_category"].map(most_common_categories)
+
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["product_name_applied"].isin(LIQUID_BIOFERT_N_MG_L),
+    "kind_of_product_imp",
+] = "BIOLOGICO/ETOLOGICO/ORGANICO"
 
 # Impute missing amounts by product name or category and units
 inputs_df_imp_amount = inputs_df_imp_product.copy()
@@ -395,13 +428,19 @@ inputs_df_imp_nitrogen.loc[mask_all_nan_group, "nitrogen_n_imputed"] = (
     mean_per_category[mask_all_nan_group]
 )
 
+# Inoculants: no direct N input (Lazcano et al. 2014). 
+inputs_df_imp_nitrogen.loc[
+    inputs_df_imp_nitrogen["product_name_applied"].isin(INOCULANT_NAMES),
+    "nitrogen_n_imputed",
+] = 0.0
+
 # Impute missing values for moisture content to enable convertion to dry amounts downstream
 # We still have 250 missing values after
 inputs_df_imp_moisture = inputs_df_imp_nitrogen.copy()
 
 # Filter for organic products only
 cond_organic = (
-    inputs_df_imp_moisture["kind_of_product"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
+    inputs_df_imp_moisture["kind_of_product_imp"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
 )
 
 # Count frequency of moisture values by product name
@@ -439,9 +478,15 @@ for product in moisture_counts_by_product_df.index:
 inputs_df_imp_estimation_syn = inputs_df_imp_moisture.copy()
 
 # Non-organic / non-"other" synthetic inputs
-mask_synth = ~inputs_df_imp_estimation_syn["kind_of_product"].isin(
-    ["BIOLOGICO/ETOLOGICO/ORGANICO", "OTRO"]
+mask_synth = ~inputs_df_imp_estimation_syn["kind_of_product_imp"].isin(
+    ["BIOLOGICO/ETOLOGICO/ORGANICO", "BIOFERTILIZANTE", "OTRO"]
 )
+
+# Convert PAQUETE_HA → KG_HA for inoculants (1 paquete ≈ 1 kg)
+# common pack size for MICORRIZA INIFAP, the most common MICORRIZA product in the dataset is 1 kg, for the rest of inoculants we will assume 1 kg as well since we don't have more specific info: https://conlupa.com.mx/?p=431545
+mask_inoculant = inputs_df_imp_estimation_syn["product_name_applied"].isin(INOCULANT_NAMES)
+mask_inoculant_paquete = mask_inoculant & inputs_df_imp_estimation_syn["units_ha"].eq("PAQUETE_HA")
+inputs_df_imp_estimation_syn.loc[mask_inoculant_paquete, "units_ha"] = "KG_HA"
 
 # Initialize column
 inputs_df_imp_estimation_syn["ef_synth_input_prod_kg_co2eq_unit"] = np.nan
@@ -655,7 +700,6 @@ mask_n_inputs = (
             "FUNGICIDE",
             "HERBICIDE",
             "FOLIAR FERTILIZER",
-            "BIOFERTILIZER",
         ]
     )
     & inputs_df_imp_estimation_syn["product_name_applied"].ne("UREA")
@@ -734,7 +778,7 @@ inputs_df_imp_estimation_org["amount_harmonized_t_ha"] = (
 )
 
 cond_organic = (
-    inputs_df_imp_estimation_org["kind_of_product"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
+    inputs_df_imp_estimation_org["kind_of_product_imp"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
 )
 
 cond_humid = (
@@ -759,7 +803,7 @@ inputs_df_imp_estimation_org["dry_organic_amount_t_ha"] = np.select(
     default=np.nan,
 )
 
-# Map manure types to macro-categories (AI-generated)
+# Map manure types to macro-categories
 manure_mapping = {
     "ESTIERCOL DE BOVINO": "Cattle Manure",
     "ESTIERCOL DE GANADO MULAR": "Horses/Mules/Asses Manure",
@@ -792,8 +836,6 @@ manure_mapping = {
     "COMPOSTA CON ABONO DE BOVINO": "General Compost",
     "BOCASHI (ABONO ORGÁNICO FERMENTADO)": "General Compost",
     "SUPERMAGRO": "General Compost",
-    # "BIOFOL": "General Compost",
-    # "BIOL": "General Compost",
     "ABONO FOLIAR FERMENTADO": "General Compost",
 }
 
@@ -810,7 +852,7 @@ nitrogen_content = {
 }
 
 cond_organic = (
-    inputs_df_imp_estimation_org["kind_of_product"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
+    inputs_df_imp_estimation_org["kind_of_product_imp"] == "BIOLOGICO/ETOLOGICO/ORGANICO"
 )
 
 # Initialize new columns to NaN to ensure non-biologico rows are clearly marked
@@ -835,6 +877,33 @@ inputs_df_imp_estimation_org.loc[cond_organic, "nitrogen_org_t_ha"] = (
     inputs_df_imp_estimation_org.loc[cond_organic, "dry_organic_amount_t_ha"]
     * inputs_df_imp_estimation_org.loc[cond_organic, "nitrogen_content_pct"].div(100)
 )
+
+# Liquid biofertilizer nitrogen: bypass the moisture/dry conversion and compute organic N directly from amount (L/HA) × literature N (mg/L).
+# Only L_HA rows produce an estimate; other units → no estimate (flagged as missing downstream).
+# Units check: (L/HA) × (mg/L) × 1e-9 = t N / HA.
+mask_liquid_biofert = (
+    inputs_df_imp_estimation_org["kind_of_product_imp"].eq("BIOLOGICO/ETOLOGICO/ORGANICO")
+    & inputs_df_imp_estimation_org["product_name_applied"].isin(LIQUID_BIOFERT_N_MG_L)
+    & inputs_df_imp_estimation_org["units_ha"].eq("L_HA")
+)
+
+n_mg_per_l = inputs_df_imp_estimation_org.loc[
+    mask_liquid_biofert, "product_name_applied"
+].map(LIQUID_BIOFERT_N_MG_L)
+
+inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "nitrogen_org_t_ha"] = (
+    inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "amount_of_product_applied_imputed"]
+    * n_mg_per_l
+    * 1e-9 # convert mg to tonne
+)
+
+# inoculant organic nitrogen 0 - to have the flag show up as available
+mask_inoculant_org = inputs_df_imp_estimation_org["product_name_applied"].isin(INOCULANT_NAMES)
+inputs_df_imp_estimation_org.loc[mask_inoculant_org, "nitrogen_org_t_ha"] = 0.0
+inputs_df_imp_estimation_org.loc[mask_inoculant_org, "category"] = "Inoculant"
+
+# Tag the category column so aggregation/diagnostics can see them
+inputs_df_imp_estimation_org.loc[mask_liquid_biofert, "category"] = "Liquid Biofertilizer"
 
 # Parameters
 # Emission factor for N2O emissions from N inputs
@@ -1080,16 +1149,6 @@ inputs_df_imp_flags["flag_pesticides_use"] = (
     .astype("Int64")
 )
 
-# Flag if all four flags are "NOT APPLICABLE": flag_missing_emissions_org_app, flag_missing_emissions_syn_tran, flag_missing_emissions_syn_app, flag_missing_emissions_syn_prod
-inputs_df_imp_flags["flag_all_fert_na"] = np.where(
-    (inputs_df_imp_flags["flag_missing_emissions_org_app"] == "NOT APPLICABLE")
-    & (inputs_df_imp_flags["flag_missing_emissions_syn_tran"] == "NOT APPLICABLE")
-    & (inputs_df_imp_flags["flag_missing_emissions_syn_app"] == "NOT APPLICABLE")
-    & (inputs_df_imp_flags["flag_missing_emissions_syn_prod"] == "NOT APPLICABLE"),
-    1,
-    0,
-)
-
 
 # Helper functions for aggregation
 # Numerical
@@ -1283,7 +1342,6 @@ inputs_df_aggregation = (
         flag_imputed_nitrogen=("flag_imputed_nitrogen", imputation_status),
         flag_imputed_moisture_level=("flag_imputed_moisture_level", imputation_status),
         flag_pesticides_use=("flag_pesticides_use", "max"),
-        flag_all_fert_na=("flag_all_fert_na", "max"), 
     )
     .reset_index()
 )
@@ -1344,7 +1402,6 @@ new_index = [
     "flag_imputed_nitrogen",
     "flag_imputed_moisture_level",
     "flag_pesticides_use",
-    "flag_all_fert_na",
     "area_ha",
     "synth_input_prod_t_co2eq",
     "synth_input_tran_dist_t_co2eq",

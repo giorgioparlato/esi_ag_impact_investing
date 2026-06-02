@@ -42,7 +42,6 @@ SELECT
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_tran,
     table_07_emissions_ag_inputs.flag_missing_emissions_org_app,
     table_07_emissions_ag_inputs.flag_imputed_amount,
-    table_07_emissions_ag_inputs.flag_all_fert_na,
     
     table_07_emissions_ag_inputs.synth_input_prod_t_co2eq,
     table_07_emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
@@ -106,39 +105,32 @@ valid_rows = df[ghg_fluxes].notna().any(axis=1)
 # Default formulas for net GHG emissions
 net_ghg_emissions_formula = df[ghg_fluxes].sum(axis=1, skipna=True).where(valid_rows)
 
-SYN_OK_TOKENS = {"NOT APPLICABLE", "NOT MISSING"}
-## for application we allow NO INPUTS MISSING (ESTIMATE ERROR), because this occurs for all and only pesticides, where there are no emissions from application
-SYN_APP_OK_TOKENS = {"NOT APPLICABLE", "NOT MISSING", "NO INPUTS MISSING (ESTIMATE ERROR)"}
-ORG_OK_TOKENS = {"NOT APPLICABLE", "AVAILABLE"}
-
-
-def na_flag(series: pd.Series, ok_tokens: set) -> pd.Series:
-    """True if aggregated flag contains any token outside `ok_tokens`. NaN treated as na."""
-    return series.fillna("__MISSING__").map(
-        lambda s: not set(s.split(" | ")).issubset(ok_tokens)
-    )
-
-na_syn_prod = na_flag(df.flag_missing_emissions_syn_prod, SYN_OK_TOKENS)
-na_syn_tran = na_flag(df.flag_missing_emissions_syn_tran, SYN_OK_TOKENS)
-na_syn_app = na_flag(df.flag_missing_emissions_syn_app, SYN_APP_OK_TOKENS)
-na_org_app = na_flag(df.flag_missing_emissions_org_app, ORG_OK_TOKENS)
-na_imputed_amount = ~df.flag_imputed_amount.fillna("").eq("REPORTED ONLY")
-
+# Conditions defining exceptions where net GHG emissions should be missing
 net_ghg_emissions_conditions = [
-    # Fuel
+    # Exceptions for fuel consumption
     df.fuel_cons_status.str.contains("UNKNOWN|MISSING", na=False),
-    # Irrigation
+    # Exceptions for irrigation equipment and application
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
     & df.irr_equip_ml_tco2eq.isna(),
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
     & df.irr_app_ml_tco2eq.isna(),
-    # Fertilizer flags — allow-list
-    na_syn_prod,
-    na_syn_tran,
-    na_syn_app,
-    na_org_app,
-    na_imputed_amount,
-    df.flag_all_fert_na.fillna(0).astype(bool),
+    # Exceptions for agricultural inputs
+    df.flag_missing_emissions_syn_prod.str.contains(
+        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+    ),
+    df.flag_missing_emissions_syn_tran.str.contains(
+        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+    ),
+    df.flag_missing_emissions_syn_app.str.contains(
+        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+    ),
+    ~df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True),
+    ~df.flag_missing_emissions_org_app.isin(
+        ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
+    )
+    & df.flag_missing_emissions_org_app.str.contains(
+        r"\bMISSING Q\b", na=False, regex=True
+    ),
     # Exceptions for crop residues
     df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
     # Exceptions for SOC
@@ -153,7 +145,6 @@ net_ghg_emissions_choices = [
     np.nan,
     np.nan,
     # Choices for agricultural inputs
-    np.nan,
     np.nan,
     np.nan,
     np.nan,
