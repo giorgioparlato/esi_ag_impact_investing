@@ -1080,6 +1080,16 @@ inputs_df_imp_flags["flag_pesticides_use"] = (
     .astype("Int64")
 )
 
+# Flag if all four flags are "NOT APPLICABLE": flag_missing_emissions_org_app, flag_missing_emissions_syn_tran, flag_missing_emissions_syn_app, flag_missing_emissions_syn_prod
+inputs_df_imp_flags["flag_all_fert_na"] = np.where(
+    (inputs_df_imp_flags["flag_missing_emissions_org_app"] == "NOT APPLICABLE")
+    & (inputs_df_imp_flags["flag_missing_emissions_syn_tran"] == "NOT APPLICABLE")
+    & (inputs_df_imp_flags["flag_missing_emissions_syn_app"] == "NOT APPLICABLE")
+    & (inputs_df_imp_flags["flag_missing_emissions_syn_prod"] == "NOT APPLICABLE"),
+    1,
+    0,
+)
+
 
 # Helper functions for aggregation
 # Numerical
@@ -1273,6 +1283,7 @@ inputs_df_aggregation = (
         flag_imputed_nitrogen=("flag_imputed_nitrogen", imputation_status),
         flag_imputed_moisture_level=("flag_imputed_moisture_level", imputation_status),
         flag_pesticides_use=("flag_pesticides_use", "max"),
+        flag_all_fert_na=("flag_all_fert_na", "max"), 
     )
     .reset_index()
 )
@@ -1333,6 +1344,7 @@ new_index = [
     "flag_imputed_nitrogen",
     "flag_imputed_moisture_level",
     "flag_pesticides_use",
+    "flag_all_fert_na",
     "area_ha",
     "synth_input_prod_t_co2eq",
     "synth_input_tran_dist_t_co2eq",
