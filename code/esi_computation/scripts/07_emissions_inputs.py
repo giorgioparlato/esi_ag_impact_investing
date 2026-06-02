@@ -85,7 +85,7 @@ org_inputs_df_raw = pd.read_excel(
 
 # Load plot areas
 areas_df = pd.read_feather(
-    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "year", "area_ha"]
+    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"]
 )
 
 # -----------------------------------------------------------------------------
@@ -1350,7 +1350,7 @@ inputs_df_aggregation = (
 inputs_df_totals = inputs_df_aggregation.copy()
 
 inputs_df_totals = inputs_df_totals.merge(
-    areas_df, on=["practice_id", "year"], how="left"
+    areas_df, on="practice_id", how="left"
 )
 
 # Compute total emission estimates

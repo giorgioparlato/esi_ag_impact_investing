@@ -133,7 +133,6 @@ agronomic_df = pd.read_feather(
     PATH_AGRONOMIC_FEATURES,
     columns=[
         "practice_id",
-        "year",
         "area_ha",
         "maize_grain_yield_t_ha",
         "maize_forage_yield_t_ha",
@@ -312,7 +311,7 @@ residues_df_agg = residues_df_agg.groupby(
 
 # Merge with agronomic data
 residues_df_merge = residues_df_agg.merge(
-    agronomic_df, on=["practice_id", "year"], how="left"
+    agronomic_df, on="practice_id", how="left"
 )
 
 residues_df_emissions = residues_df_merge.copy()

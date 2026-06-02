@@ -221,8 +221,8 @@ df = df.merge(
 
 # ---- Merge agronomic (area, yield) ----
 df = df.merge(
-    agronomic_df[["practice_id", "year", "area_ha"]],
-    on=["practice_id", "year"],
+    agronomic_df[["practice_id", "area_ha"]],
+    on="practice_id",
     how="left",
 )
 
@@ -237,9 +237,9 @@ with rasterio.open(PATH_CLIMATE_ZONES / "CLIMATE_ZONE.rst") as src:
 
 # ---- Merge SQL environmental data (pcp, tmax, tmin) ----
 with sqlite3.connect(PATH_SQL_DB_EXT) as conn:
-    env_df = pd.read_sql("SELECT logbook_id, year, pcp, tmax, tmin FROM env_data", conn)
+    env_df = pd.read_sql("SELECT logbook_id, pcp, tmax, tmin FROM env_data", conn)
 env_df["logbook_id"] = env_df["logbook_id"].astype("string")
-df = df.merge(env_df, on=["logbook_id", "year"], how="left")
+df = df.merge(env_df, on="logbook_id", how="left")
 
 # ---- Merge economics (irrigation cost) ----
 econ_raw = (
@@ -263,8 +263,8 @@ econ = pd.concat([econ_conv, econ_innov]).dropna(subset=["practice_id"])
 econ.rename(columns={"irrigation": "irrigation_cost_mxn_ha"}, inplace=True)
 
 df = df.merge(
-    econ[["logbook_id", "practice_id", "year", "irrigation_cost_mxn_ha"]],
-    on=["logbook_id", "practice_id", "year"],
+    econ[["logbook_id", "practice_id", "irrigation_cost_mxn_ha"]],
+    on=["logbook_id", "practice_id"],
     how="left",
 )
 

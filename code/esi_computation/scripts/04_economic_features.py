@@ -133,7 +133,7 @@ economics_df_reshape.rename(
 
 # Compute financial metrics
 economics_df_metrics = economics_df_reshape.merge(
-    areas_df, on=["practice_id", "year"], how="left"
+    areas_df, on="practice_id", how="left"
 )
 
 # Total cost
