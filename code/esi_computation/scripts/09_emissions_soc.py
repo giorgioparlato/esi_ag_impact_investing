@@ -43,19 +43,19 @@ KEY_VARS = ["year", "tillage_bem", "tillage_land"]
 
 # Map IPCC coefficients based on all the variables
 # Relative stock change factors for different management activities on cropland
-# Source: table 5.5 in https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_05_Ch5_Cropland.pdf
+# Source: table 5.5 in https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/4_Volume4/19R_V4_Ch05_Cropland.pdf
 # Land use coefficients (FLU) for long-term cultivated class
 FLU_MAPPING = {
     # Temperate/Boreal
     "Warm Temperate Moist": 0.69,
-    "Warm Temperate Dry": 0.80,
-    "Cool Temperate Moist": 0.69,
-    "Cool Temperate Dry": 0.80,
+    "Warm Temperate Dry": 0.76,
+    "Cool Temperate Moist": 0.70,
+    "Cool Temperate Dry": 0.77,
     # Tropical
-    "Tropical Wet": 0.48,
-    "Tropical Moist": 0.48,
-    "Tropical Dry": 0.58,
-    "Tropical Montane": 0.64,
+    "Tropical Wet": 0.83,
+    "Tropical Moist": 0.83,
+    "Tropical Dry": 0.92,
+    "Tropical Montane": 0.87, # value missing in table, we approximate with the average of the other tropical classes
 }
 
 # Tillage coefficients (FMG)
@@ -66,46 +66,55 @@ FTILL_MAPPING = {
     "TRADITIONAL TILLAGE": {"default": 1.00},
     # Minimum tillage = Reduced
     "MINIMUM-REDUCED TILLAGE": {
-        "Cool Temperate Dry": 1.02,
-        "Cool Temperate Moist": 1.08,
-        "Tropical Dry": 1.09,
-        "Tropical Moist": 1.15,
-        "Tropical Wet": 1.15,
-        "Tropical Montane": 1.09,
+        "Cool Temperate Dry": 0.98,
+        "Cool Temperate Moist": 1.04,
+        "Warm Temperate Dry": 0.99,
+        "Warm Temperate Moist": 1.05,
+        "Tropical Dry": 0.99,
+        "Tropical Moist": 1.04,
+        "Tropical Wet": 1.04,
+        "Tropical Montane": 1.015, # value missing in table, we approximate with the average of the other tropical classes
     },
+
     # Zero tillage = No-till
     "ZERO TILLAGE": {
-        "Cool Temperate Dry": 1.10,
-        "Cool Temperate Moist": 1.15,
-        "Tropical Dry": 1.17,
-        "Tropical Moist": 1.22,
-        "Tropical Wet": 1.22,
-        "Tropical Montane": 1.16,
+        "Cool Temperate Dry": 1.03,
+        "Cool Temperate Moist": 1.09,
+        "Warm Temperate Dry": 1.04,
+        "Warm Temperate Moist": 1.10,
+        "Tropical Dry": 1.04,
+        "Tropical Moist": 1.10,
+        "Tropical Wet": 1.10,
+        "Tropical Montane": 1.07, # value missing in table, we approximate with the average of the other tropical classes
     },
-    # Averaging for combinations
+   # Averaging for combinations
     "MINIMUM-REDUCED TILLAGE | TRADITIONAL TILLAGE": {
-        "Cool Temperate Dry": (1.02 + 1) / 2,
-        "Cool Temperate Moist": (1.08 + 1) / 2,
-        "Tropical Dry": (1.09 + 1) / 2,
-        "Tropical Moist": (1.15 + 1) / 2,
-        "Tropical Wet": (1.15 + 1) / 2,
-        "Tropical Montane": (1.09 + 1) / 2,
+        "Cool Temperate Dry": (0.98 + 1) / 2,
+        "Cool Temperate Moist": (1.04 + 1) / 2,
+        "Warm Temperate Dry": (0.99 + 1) / 2,
+        "Warm Temperate Moist": (1.05 + 1) / 2,
+        "Tropical Dry": (0.99 + 1) / 2,
+        "Tropical Moist": (1.04 + 1) / 2,
+        "Tropical Wet": (1.04 + 1) / 2,
+        "Tropical Montane": (1.015 + 1) / 2,
     },
     "MINIMUM-REDUCED TILLAGE | ZERO TILLAGE": {
-        "Cool Temperate Dry": (1.02 + 1.10) / 2,
-        "Cool Temperate Moist": (1.08 + 1.15) / 2,
-        "Tropical Dry": (1.09 + 1.17) / 2,
-        "Tropical Moist": (1.15 + 1.22) / 2,
-        "Tropical Wet": (1.15 + 1.22) / 2,
-        "Tropical Montane": (1.09 + 1.22) / 2,
+        "Cool Temperate Dry": (0.98 + 1.03) / 2,
+        "Cool Temperate Moist": (1.04 + 1.09) / 2,
+        "Warm Temperate Dry": (0.99 + 1.04) / 2,
+        "Warm Temperate Moist": (1.05 + 1.10) / 2,
+        "Tropical Dry": (0.99 + 1.04) / 2,
+        "Tropical Moist": (1.04 + 1.10) / 2,
+        "Tropical Wet": (1.04 + 1.10) / 2,
+        "Tropical Montane": (1.015 + 1.07) / 2,
     },
     "MINIMUM-REDUCED TILLAGE | TRADITIONAL TILLAGE | ZERO TILLAGE": {
-        "Cool Temperate Dry": (1.02 + 1 + 1.10) / 3,
-        "Cool Temperate Moist": (1.08 + 1 + 1.15) / 3,
-        "Tropical Dry": (1.09 + 1 + 1.17) / 3,
-        "Tropical Moist": (1.15 + 1 + 1.22) / 3,
-        "Tropical Wet": (1.15 + 1 + 1.22) / 3,
-        "Tropical Montane": (1.09 + 1 + 1.22) / 3,
+        "Cool Temperate Dry": (0.98 + 1 + 1.03) / 3,
+        "Cool Temperate Moist": (1.04 + 1 + 1.09) / 3,
+        "Warm Temperate Dry": (0.99 + 1 + 1.04) / 3,
+        "Warm Temperate Moist": (1.05 + 1 + 1.10) / 3,
+        "Tropical Dry": (0.99 + 1 + 1.04) / 3,
+        "Tropical Moist": (1.04 + 1 + 1.10) / 3,
     },
 }
 
@@ -123,6 +132,8 @@ FI_MAPPING = {
     # HIGH without manure
     ("High_no_manure", "Cool Temperate Dry"): 1.04,
     ("High_no_manure", "Cool Temperate Moist"): 1.11,
+    ("High_no_manure", "Warm Temperate Dry"): 1.04,
+    ("High_no_manure", "Warm Temperate Moist"): 1.11,
     ("High_no_manure", "Tropical Dry"): 1.04,
     ("High_no_manure", "Tropical Moist"): 1.11,
     ("High_no_manure", "Tropical Wet"): 1.11,
@@ -136,23 +147,88 @@ FI_MAPPING = {
     ("High_with_manure", "Tropical Montane"): 1.41,
 }
 
-MANURE_TYPES = {
+## the exact-match MANURE_TYPES set is replaced by a robust token match
+## (the original set missed real combinations such as "Cattle Manure | Liquid Biofertilizer").
+ANIMAL_MANURE = (
     "Cattle Manure",
-    "General Compost",
     "Sheep Manure",
     "Poultry Manure",
     "Swine Manure",
-    "Cattle Manure | General Compost",
     "Horses/Mules/Asses Manure",
-    "General Compost | Poultry Manure",
-    "Cattle Manure | Poultry Manure",
-    "Cattle Manure | Sheep Manure",
-    "General Compost | Sheep Manure",
-    "Poultry Manure | Sheep Manure",
-    "Poultry Manure | Swine Manure",
-    "Horses/Mules/Asses Manure | Swine Manure",
+)
+
+## CHANGES: floor (kg/ha of product) below which a synthetic-fertilizer amount is NOT counted as
+## "mineral fertilization" (applications run as low as 0.5 kg/ha)
+SYNTH_FLOOR_KG_HA = 50
+
+## assign the IPCC default reference SOC stock (SOCref) by climate x soil class 
+## Legend of the IPCC soil-types raster (codes -> categories);
+SOIL_CODE_MAP = {
+    0: None,    # masked (oceans)
+    1: "GG",    # glaciers / land ice
+    2: "HAC",   # High activity clay
+    3: "LAC",   # Low activity clay
+    4: "ND",    # no data
+    5: "ORG",   # organic soils -> method N/A
+    6: "POD",   # spodic
+    7: "RK",    # rock outcrops
+    8: "SAN",   # sandy
+    9: "ST",    # salt flats
+    10: "VOL",  # volcanic
+    11: "WET",  # wetland
+    12: "WR",   # water
+    13: "IS",   # islands
 }
 
+# Mineral soil categories that have an IPCC Table 2.3 reference SOC stock
+SOCREF_SOILS = {"HAC", "LAC", "SAN", "POD", "VOL", "WET"}
+
+# IPCC 2019 Vol 4, Ch 2, Table 2.3 — default reference SOC stocks under native vegetation
+# (tonnes C ha^-1, 0-30 cm). Keyed on (original climate class, soil category). Missing combos are
+# simply absent -> lookup returns NaN (never silently contributes a zero).
+SOCREF_IPCC = {
+    ("Warm Temperate Dry", "HAC"): 24, ("Warm Temperate Dry", "LAC"): 19,
+    ("Warm Temperate Dry", "SAN"): 10, ("Warm Temperate Dry", "VOL"): 84,
+    ("Warm Temperate Dry", "WET"): 74,
+    # POD = NO for Warm Temperate Dry -> omitted
+ 
+    ("Warm Temperate Moist", "HAC"): 64, ("Warm Temperate Moist", "LAC"): 55,
+    ("Warm Temperate Moist", "SAN"): 36, ("Warm Temperate Moist", "POD"): 143,
+    ("Warm Temperate Moist", "VOL"): 138, ("Warm Temperate Moist", "WET"): 135,
+ 
+    ("Cool Temperate Dry", "HAC"): 43, ("Cool Temperate Dry", "LAC"): 33,
+    ("Cool Temperate Dry", "SAN"): 13, ("Cool Temperate Dry", "VOL"): 20,
+    ("Cool Temperate Dry", "WET"): 87,
+    # POD = NO for Cool Temperate Dry -> omitted
+ 
+    ("Cool Temperate Moist", "HAC"): 81, ("Cool Temperate Moist", "LAC"): 76,
+    ("Cool Temperate Moist", "SAN"): 51, ("Cool Temperate Moist", "POD"): 128,
+    ("Cool Temperate Moist", "VOL"): 136, ("Cool Temperate Moist", "WET"): 128,
+ 
+    ("Tropical Dry", "HAC"): 21, ("Tropical Dry", "LAC"): 19,
+    ("Tropical Dry", "SAN"): 9, ("Tropical Dry", "VOL"): 50,
+    ("Tropical Dry", "WET"): 22,
+    # POD = NA for Tropical Dry -> omitted
+ 
+    ("Tropical Moist", "HAC"): 40, ("Tropical Moist", "LAC"): 38,
+    ("Tropical Moist", "SAN"): 27, ("Tropical Moist", "VOL"): 70,
+    ("Tropical Moist", "WET"): 68,
+    # POD = NA for Tropical Moist -> omitted
+ 
+    ("Tropical Wet", "HAC"): 60, ("Tropical Wet", "LAC"): 52,
+    ("Tropical Wet", "SAN"): 46, ("Tropical Wet", "VOL"): 77,
+    ("Tropical Wet", "WET"): 49,
+    # POD = NA for Tropical Wet -> omitted
+ 
+    ("Tropical Montane", "HAC"): 51, ("Tropical Montane", "LAC"): 44,
+    ("Tropical Montane", "SAN"): 52, ("Tropical Montane", "VOL"): 96,
+    ("Tropical Montane", "WET"): 82,
+    # POD = NA for Tropical Montane -> omitted
+ 
+    ("Boreal", "HAC"): 63, ("Boreal", "SAN"): 10, ("Boreal", "POD"): 117,
+    ("Boreal", "VOL"): 20, ("Boreal", "WET"): 116,
+    # LAC = NA for Boreal -> omitted
+}
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
