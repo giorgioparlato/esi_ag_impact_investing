@@ -247,10 +247,36 @@ soc_df_ref = pd.read_feather(
         "plot_id",
         "logbook_id",
         "practice_id",
+        "latitude_n",  
+        "longitude_w", 
+        "climate_class",  
         "climate_class_corrected",
         "soc_ref",
     ],
 )
+
+# sample the IPCC soil-types raster at each farm and assign the IPCC default reference SOC  stock (climate x soil, Table 2.3)
+# The GSOCseq value sampled in script 02 is kept as`soc_ref_gsocseq` for comparison, and `soc_ref` refers to the IPCC value 
+_coords = list(zip(soc_df_ref["longitude_w"].astype(float), soc_df_ref["latitude_n"].astype(float)))
+with rasterio.open(PATH_SOIL_CLASS_IPCC) as _src:
+    soc_df_ref["soil_code_ipcc"] = [v[0] for v in _src.sample(_coords)]
+soc_df_ref["soil_category_ipcc"] = soc_df_ref["soil_code_ipcc"].map(SOIL_CODE_MAP)
+
+
+def lookup_socref_ipcc(row):
+    """IPCC Table 2.3 reference SOC stock for the (climate, soil) pair; NaN where undefined
+    (organic/water/non-soil categories, or combos absent from the table)."""
+    category = row["soil_category_ipcc"]
+    if category not in SOCREF_SOILS:
+        return np.nan
+    return SOCREF_IPCC.get((row["climate_class"], category), np.nan)
+
+
+soc_df_ref["soc_ref_ipcc"] = soc_df_ref.apply(lookup_socref_ipcc, axis=1).astype(float)
+# Keep GSOCseq value for reference; use the IPCC value as the active SOCref
+soc_df_ref = soc_df_ref.rename(columns={"soc_ref": "soc_ref_gsocseq"})
+soc_df_ref["soc_ref"] = soc_df_ref["soc_ref_ipcc"]
+
 
 # Areas
 soc_agronomic_df = pd.read_feather(
