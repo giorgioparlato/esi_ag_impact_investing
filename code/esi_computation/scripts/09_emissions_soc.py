@@ -563,7 +563,7 @@ soc_df_estimation["tillage_ca_dummy"] = np.where(
 # Source: threshold for crop residues in accordance with FAO https://doi.org/10.1007/s13593-017-0432-z
 soc_df_estimation["ca_fao_dummy"] = np.where(
     (soc_df_estimation["tillage_ca_dummy"] == 1)
-    & (soc_df_estimation["maize_residues_returned_dm_t_ha"] >= 2),
+    & (soc_df_estimation["maize_residues_surface_cover_dm_t_ha"] >= 2),
     1,
     0,
 )
@@ -590,6 +590,7 @@ new_index = [
     "nitrogen_org_t_ha",
     "residues_returned_perc_harvest",
     "maize_residues_returned_dm_t_ha",
+    "maize_residues_surface_cover_dm_t_ha",
     "ca_fao_dummy",
     "fi_bau",
     "fi",
