@@ -20,6 +20,7 @@ from pathlib import Path
 import janitor
 import pandas as pd
 import numpy as np
+import rasterio 
 
 from paths import (
     PATH_REF_TABLE_ENRICHED,
@@ -30,6 +31,7 @@ from paths import (
     SHEET_CIMMYT_ACTIVITIES,
     PATH_PROCESSED_TABLES,
     PATH_SQL_DB,
+    PATH_SOIL_CLASS_IPCC,
 )
 
 # -----------------------------------------------------------------------------
