@@ -294,6 +294,8 @@ soc_ag_inputs_df = pd.read_feather(
         "practice_id",
         "categories_organic",
         "nitrogen_org_t_ha",
+        "synth_fert_amount_kg_ha", 
+        "product_categories",  
     ],
 )
 
@@ -307,6 +309,7 @@ soc_crop_res_df = pd.read_feather(
         "practice_id",
         "residues_returned_perc_harvest",
         "maize_residues_returned_dm_t_ha",
+        "maize_residues_surface_cover_dm_t_ha",
     ],
 )
 
