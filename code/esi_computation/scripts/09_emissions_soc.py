@@ -385,28 +385,91 @@ soc_df_merged = soc_df_merged.merge(soc_ag_inputs_df, on=labels, how="left")
 soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 
 
-# Assigning input coefficients
-# Classify FI level
+soc_df_mapping = soc_df_merged.copy()
+
+# --- detect "mineral fertilization" (Table 5.5 gating condition for Medium) -----------
+def has_mineral_fert_product(pc):
+    """True if a mineral/foliar fertilizer product is recorded (BIOFERTILIZER excluded)."""
+    if pd.isna(pc):
+        return False
+    return any(
+        token.strip().upper() in ("FERTILIZER", "FOLIAR FERTILIZER")
+        for token in pc.split("|")
+    )
+
+
+soc_df_mapping["flag_synth_na"] = soc_df_mapping["synth_fert_amount_kg_ha"].isna()
+soc_df_mapping["has_mineral_fert_product"] = soc_df_mapping["product_categories"].apply(
+    has_mineral_fert_product
+)
+soc_df_mapping["mineral_fert"] = (
+    soc_df_mapping["synth_fert_amount_kg_ha"] >= SYNTH_FLOOR_KG_HA
+) | (soc_df_mapping["flag_synth_na"] & soc_df_mapping["has_mineral_fert_product"])
+
+# --- thresholds ----------------------------------------------------------------------
+# RESIDUE_RETURNED_PCT: a field counts as "residues returned" if at least this % of the
+#   harvest residue stays on the field. Analyst choice (IPCC speaks of returned vs
+#   removed, not a %); 50% is a reasonable midpoint, document it as an assumption.
+RESIDUE_RETURNED_PCT = 50
+
+# ORGANIC_INPUT_FLOOR_T_HA: minimum non-manure organic N input (t/ha) for the input to
+#   count as an input-enhancing practice (green manure, cover crop, etc.) for
+#   High_without_manure, or as supplemental organic matter for the Medium removal-
+#   compensation path. Set to >0 for now (any recorded organic input qualifies);
+#   raise once a defensible agronomic floor is known, to avoid token applications
+#   being treated as a genuine practice.
+ORGANIC_INPUT_FLOOR_T_HA = 0  # qualifies when n_input > this value
+
+# --- FI classification, IPCC 2019 Vol 4 Ch 5 Table 5.5 -------------------------------
+# Priority order:
+#   1. returned + animal manure                                  -> High_with_manure
+#        (Table 5.5: "higher C input ... due to ... regular addition of animal manure")
+#   2. returned + (non-manure organic input OR high residue mass) -> High_without_manure
+#        (Table 5.5: "greater crop residue inputs ... due to additional practices [green
+#         manures, cover crops, improved fallows, irrigation, high-residue crops] ...
+#         but without manure applied". Non-manure organic input and high residue mass
+#         both serve as proxies for those practices.)
+#   3. returned + mineral fertilization                          -> Medium
+#        (Table 5.5 Medium path 1: residues returned, with mineral fert / N-fixing crop)
+#   4. residues removed + organic matter added                   -> Medium
+#        (Table 5.5 Medium path 2: removal compensated by supplemental organic matter)
+#   5. otherwise (incl. removed + mineral-fert-only)             -> Low
+#        (mineral N adds no soil C; removed residue with no organic input falls to Low)
 def classify_fi_level(row):
-    """Classify FI level based on organic inputs and crop residues."""
+    """Classify FI level per IPCC 2019 Vol 4 Ch 5 Table 5.5."""
+    residues = row.get("residues_returned_perc_harvest", 0)
     n_input = row.get("nitrogen_org_t_ha", 0)
     category = row.get("categories_organic", "")
-    residues = row.get("residues_returned_perc_harvest", 0)
+    residue_mass = row.get("maize_residues_returned_dm_t_ha", 0)
 
-    # Treat missing values as 0 or empty string
-    n_input = 0 if pd.isna(n_input) else n_input
     residues = 0 if pd.isna(residues) else residues
+    n_input = 0 if pd.isna(n_input) else n_input
     category = "" if pd.isna(category) else category
+    residue_mass = 0 if pd.isna(residue_mass) else residue_mass
 
-    # Check conditions in order of specificity
-    if category in MANURE_TYPES and n_input > 0 and residues >= 80:
+    returned = residues >= RESIDUE_RETURNED_PCT
+    has_organic = n_input > ORGANIC_INPUT_FLOOR_T_HA
+    animal_manure = has_organic and any(t in category for t in ANIMAL_MANURE)
+    nonmanure_organic = has_organic and not animal_manure
+    high_residue = residue_mass >= HIGH_RESIDUE_DM_T_HA
+
+    # 1. manure is the sole discriminator for High_with_manure
+    if returned and animal_manure:
         return "High_with_manure"
-    elif n_input == 0 and residues >= 80:
-        return "High_no_manure"
-    elif residues > 40 or (n_input > 0 and residues > 20):
+    # 2. non-manure organic input or high residue mass -> input-enhancing practice
+    if returned and (nonmanure_organic or high_residue):
+        return "High_without_manure"
+    # 3. standard returned-residue cereal field with mineral fertilization
+    if returned and row["mineral_fert"]:
         return "Medium"
-
+    # 4. residues removed but compensated by supplemental organic matter
+    if (not returned) and has_organic:
+        return "Medium"
+    # 5. everything else, including removed-residue + mineral-fert-only
     return "Low"
+
+
+soc_df_mapping["fi_level"] = soc_df_mapping.apply(classify_fi_level, axis=1)
 
 
 soc_df_mapping = soc_df_merged.copy()
