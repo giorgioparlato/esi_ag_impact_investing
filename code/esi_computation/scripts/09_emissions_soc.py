@@ -387,30 +387,10 @@ soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 
 soc_df_mapping = soc_df_merged.copy()
 
-# --- detect "mineral fertilization" (Table 5.5 gating condition for Medium) -----------
-def has_mineral_fert_product(pc):
-    """True if a mineral/foliar fertilizer product is recorded (BIOFERTILIZER excluded)."""
-    if pd.isna(pc):
-        return False
-    return any(
-        token.strip().upper() in ("FERTILIZER", "FOLIAR FERTILIZER")
-        for token in pc.split("|")
-    )
-
-
-soc_df_mapping["flag_synth_na"] = soc_df_mapping["synth_fert_amount_kg_ha"].isna()
-soc_df_mapping["has_mineral_fert_product"] = soc_df_mapping["product_categories"].apply(
-    has_mineral_fert_product
-)
-soc_df_mapping["mineral_fert"] = (
-    soc_df_mapping["synth_fert_amount_kg_ha"] >= SYNTH_FLOOR_KG_HA
-) | (soc_df_mapping["flag_synth_na"] & soc_df_mapping["has_mineral_fert_product"])
-
 # --- thresholds ----------------------------------------------------------------------
-# RESIDUE_RETURNED_PCT: a field counts as "residues returned" if at least this % of the
-#   harvest residue stays on the field. Analyst choice (IPCC speaks of returned vs
-#   removed, not a %); 50% is a reasonable midpoint, document it as an assumption.
+# We recognize there is a linear relationship between residues retained and SOC sequestration, IPCC works with thresholds
 RESIDUE_RETURNED_PCT = 50
+HIGH_RESIDUE_DM_T_HA = 8  # threshold for "high" residue mass (t/ha dry matter) after which annual gains in SOC saturate, per FAO https://doi.org/10.1007/s13593-017-0432-z
 
 # ORGANIC_INPUT_FLOOR_T_HA: minimum non-manure organic N input (t/ha) for the input to
 #   count as an input-enhancing practice (green manure, cover crop, etc.) for
@@ -460,7 +440,7 @@ def classify_fi_level(row):
     if returned and (nonmanure_organic or high_residue):
         return "High_without_manure"
     # 3. standard returned-residue cereal field with mineral fertilization
-    if returned and row["mineral_fert"]:
+    if returned:
         return "Medium"
     # 4. residues removed but compensated by supplemental organic matter
     if (not returned) and has_organic:
