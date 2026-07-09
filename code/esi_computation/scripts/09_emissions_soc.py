@@ -121,6 +121,8 @@ FTILL_MAPPING = {
 # Input coefficients (FI)
 FI_MAPPING = {
     # LOW
+    ("Low", "Warm Temperate Dry"): 0.95,
+    ("Low", "Warm Temperate Moist"): 0.92,
     ("Low", "Cool Temperate Dry"): 0.95,
     ("Low", "Cool Temperate Moist"): 0.92,
     ("Low", "Tropical Dry"): 0.95,
@@ -139,6 +141,8 @@ FI_MAPPING = {
     ("High_no_manure", "Tropical Wet"): 1.11,
     ("High_no_manure", "Tropical Montane"): 1.08,
     # HIGH with manure
+    ("High_with_manure", "Warm Temperate Dry"): 1.37,
+    ("High_with_manure", "Warm Temperate Moist"): 1.44,
     ("High_with_manure", "Cool Temperate Dry"): 1.37,
     ("High_with_manure", "Cool Temperate Moist"): 1.44,
     ("High_with_manure", "Tropical Dry"): 1.37,
@@ -156,10 +160,6 @@ ANIMAL_MANURE = (
     "Swine Manure",
     "Horses/Mules/Asses Manure",
 )
-
-## CHANGES: floor (kg/ha of product) below which a synthetic-fertilizer amount is NOT counted as
-## "mineral fertilization" (applications run as low as 0.5 kg/ha)
-SYNTH_FLOOR_KG_HA = 50
 
 ## assign the IPCC default reference SOC stock (SOCref) by climate x soil class 
 ## Legend of the IPCC soil-types raster (codes -> categories);
@@ -249,8 +249,7 @@ soc_df_ref = pd.read_feather(
         "practice_id",
         "latitude_n",  
         "longitude_w", 
-        "climate_class",  
-        "climate_class_corrected",
+        "climate_class",
         "soc_ref",
     ],
 )
@@ -294,7 +293,7 @@ soc_ag_inputs_df = pd.read_feather(
         "practice_id",
         "categories_organic",
         "nitrogen_org_t_ha",
-        "synth_fert_amount_kg_ha", 
+        "synth_input_app_t_co2eq_ha", # proxy ofsynthetic nitrogen applications
         "product_categories",  
     ],
 )
@@ -385,72 +384,87 @@ soc_df_merged = soc_df_merged.merge(soc_ag_inputs_df, on=labels, how="left")
 soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 
 
-soc_df_mapping = soc_df_merged.copy()
-
-# --- thresholds ----------------------------------------------------------------------
-# We recognize there is a linear relationship between residues retained and SOC sequestration, IPCC works with thresholds
-RESIDUE_RETURNED_PCT = 50
-HIGH_RESIDUE_DM_T_HA = 8  # threshold for "high" residue mass (t/ha dry matter) after which annual gains in SOC saturate, per FAO https://doi.org/10.1007/s13593-017-0432-z
-
-# ORGANIC_INPUT_FLOOR_T_HA: minimum non-manure organic N input (t/ha) for the input to
-#   count as an input-enhancing practice (green manure, cover crop, etc.) for
-#   High_without_manure, or as supplemental organic matter for the Medium removal-
-#   compensation path. Set to >0 for now (any recorded organic input qualifies);
-#   raise once a defensible agronomic floor is known, to avoid token applications
-#   being treated as a genuine practice.
-ORGANIC_INPUT_FLOOR_T_HA = 0  # qualifies when n_input > this value
-
 # --- FI classification, IPCC 2019 Vol 4 Ch 5 Table 5.5 -------------------------------
-# Priority order:
-#   1. returned + animal manure                                  -> High_with_manure
-#        (Table 5.5: "higher C input ... due to ... regular addition of animal manure")
-#   2. returned + (non-manure organic input OR high residue mass) -> High_without_manure
-#        (Table 5.5: "greater crop residue inputs ... due to additional practices [green
-#         manures, cover crops, improved fallows, irrigation, high-residue crops] ...
-#         but without manure applied". Non-manure organic input and high residue mass
-#         both serve as proxies for those practices.)
-#   3. returned + mineral fertilization                          -> Medium
-#        (Table 5.5 Medium path 1: residues returned, with mineral fert / N-fixing crop)
-#   4. residues removed + organic matter added                   -> Medium
-#        (Table 5.5 Medium path 2: removal compensated by supplemental organic matter)
-#   5. otherwise (incl. removed + mineral-fert-only)             -> Low
-#        (mineral N adds no soil C; removed residue with no organic input falls to Low)
+# --- thresholds ----------------------------------------------------------------------
+# We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology works with thresholds.
+RESIDUE_RETURNED_PCT = 60 
+HIGH_RESIDUE_DM_T_HA = 8  # threshold for "high" residue mass (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
+
 def classify_fi_level(row):
     """Classify FI level per IPCC 2019 Vol 4 Ch 5 Table 5.5."""
     residues = row.get("residues_returned_perc_harvest", 0)
-    n_input = row.get("nitrogen_org_t_ha", 0)
+    n_org_input = row.get("nitrogen_org_t_ha", 0)
+    n_synth_input = row.get("synth_input_app_t_co2eq_ha", 0)
     category = row.get("categories_organic", "")
     residue_mass = row.get("maize_residues_returned_dm_t_ha", 0)
 
     residues = 0 if pd.isna(residues) else residues
-    n_input = 0 if pd.isna(n_input) else n_input
+    n_org_input = 0 if pd.isna(n_org_input) else n_org_input
+    n_synth_input = 0 if pd.isna(n_synth_input) else n_synth_input
     category = "" if pd.isna(category) else category
     residue_mass = 0 if pd.isna(residue_mass) else residue_mass
 
-    returned = residues >= RESIDUE_RETURNED_PCT
-    has_organic = n_input > ORGANIC_INPUT_FLOOR_T_HA
+    returned = residues > RESIDUE_RETURNED_PCT
+    has_organic = n_org_input > 0
     animal_manure = has_organic and any(t in category for t in ANIMAL_MANURE)
     nonmanure_organic = has_organic and not animal_manure
-    high_residue = residue_mass >= HIGH_RESIDUE_DM_T_HA
+    high_residue = residue_mass >= HIGH_RESIDUE_DM_T_HA # High residue threshold introduced to handle note 4 in Figure 5.1 where high residues can be considered as a practice increasing C input. The threshold is set to 8 t/ha dry matter (see curve in Figure 6c in Ranaivoson et al. 2017 https://doi.org/10.1007/s13593-017-0432-z)
+  
+    mineral_fert = n_synth_input > 0
+    n_additions = mineral_fert or has_organic
+    
 
-    # 1. manure is the sole discriminator for High_with_manure
-    if returned and animal_manure:
+    # Following IPCC 2019 Vol 4, Fig 5.1 and Table 5.5
+    # Node 2: residues removed or burned? 
+    if not returned:
+        # Node 3: organic amendment?
+        return "Medium" if has_organic else "Low"
+    
+    # residues returned 
+    # Node 4: N-fertilisation?
+    if not n_additions:
+        return "Medium"                   
+
+    # Node 5: manure or poultry litter added? 
+    if animal_manure:
         return "High_with_manure"
-    # 2. non-manure organic input or high residue mass -> input-enhancing practice
-    if returned and (nonmanure_organic or high_residue):
-        return "High_without_manure"
-    # 3. standard returned-residue cereal field with mineral fertilization
-    if returned:
-        return "Medium"
-    # 4. residues removed but compensated by supplemental organic matter
-    if (not returned) and has_organic:
-        return "Medium"
-    # 5. everything else, including removed-residue + mineral-fert-only
-    return "Low"
 
+    # Node 6: practice increasing C input?
+    # if nonmanure_organic or high_residue:
+    return "High_no_manure"
+    # return "Medium"
 
-soc_df_mapping["fi_level"] = soc_df_mapping.apply(classify_fi_level, axis=1)
+## SOC JUNE
+    # # 1. manure is the sole discriminator for High_with_manure
+    # if returned and animal_manure:
+    #     return "High_with_manure"
+    # # 2. non-manure organic input or high residue mass -> input-enhancing practice
+    # if returned and (nonmanure_organic or high_residue):
+    #     return "High_no_manure"
+    # # 3. standard returned-residue cereal field with mineral fertilization
+    # if returned:
+    #     return "Medium"
+    # # 4. residues removed but compensated by supplemental organic matter
+    # if (not returned) and has_organic:
+    #     return "Medium"
+    # # 5. everything else, including removed-residue + mineral-fert-only
+    # return "Low"
 
+# # Modified SOC JUNE
+#     # 1. manure is the sole discriminator for High_with_manure
+#     if returned and animal_manure:
+#         return "High_with_manure"
+#     # 2. non-manure organic input or high residue mass -> input-enhancing practice
+#     if returned and (nonmanure_organic or high_residue):
+#         return "High_no_manure"
+#     # 3. standard returned-residue cereal field with mineral fertilization
+#     if returned:
+#         return "Medium"
+#     # 4. residues removed but compensated by supplemental organic matter
+#     if (not returned) and has_organic:
+#         return "Medium"
+#     # 5. everything else, including removed-residue + mineral-fert-only
+#     return "Low"
 
 soc_df_mapping = soc_df_merged.copy()
 
@@ -459,7 +473,7 @@ soc_df_mapping["fi_level"] = soc_df_mapping.apply(classify_fi_level, axis=1)
 
 # Assign FI value
 def map_fi(row):
-    key = (row["fi_level"], row["climate_class_corrected"])
+    key = (row["fi_level"], row["climate_class"])
     if row["fi_level"] == "Medium":
         return 1.00
     return FI_MAPPING.get(key, None)
@@ -470,14 +484,14 @@ soc_df_mapping["fi"] = soc_df_mapping.apply(map_fi, axis=1)
 
 # Assign FI values for business as usual - Low inputs
 def map_fi_bau(row):
-    climate = row.get("climate_class_corrected")
+    climate = row.get("climate_class")
     return FI_MAPPING.get(("Low", climate), None)
 
 
 soc_df_mapping["fi_bau"] = soc_df_mapping.apply(map_fi_bau, axis=1)
 
 # Assign FLU directly from climate_class
-soc_df_mapping["flu"] = soc_df_mapping["climate_class_corrected"].map(FLU_MAPPING)
+soc_df_mapping["flu"] = soc_df_mapping["climate_class"].map(FLU_MAPPING)
 
 # Fill missing values for tillage with 'TRADITIONAL TILLAGE'
 soc_df_mapping["tillage"] = soc_df_mapping["tillage"].fillna("TRADITIONAL TILLAGE")
@@ -485,7 +499,7 @@ soc_df_mapping["tillage"] = soc_df_mapping["tillage"].fillna("TRADITIONAL TILLAG
 
 def map_ftill(row):
     till_type = row.get("tillage")
-    climate = row.get("climate_class_corrected", "")
+    climate = row.get("climate_class", "")
 
     if pd.isna(till_type) or till_type == "TRADITIONAL TILLAGE":
         return 1.00
@@ -560,7 +574,7 @@ new_index = [
     "practice_id",
     "year",
     "area_ha",
-    "climate_class_corrected",
+    "climate_class",
     "flu",
     "tillage",
     "tillage_count",
@@ -580,6 +594,7 @@ new_index = [
     "soc_delta",
     "soc_delta_t_co2eq_ha",
     "soc_delta_t_co2eq",
+    "synth_input_app_t_co2eq_ha",
 ]
 
 soc_df_final = soc_df_final.reindex(columns=new_index)
