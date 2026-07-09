@@ -416,10 +416,10 @@ inputs_df_imp_nitrogen["nitrogen_n_imputed"] = n.copy()
 nan_mask = n.isna()
 
 mask_only_zero_or_nan = nan_mask & has_zero & ~has_pos & ~all_nan
-inputs_df_imp_nitrogen.loc[mask_only_zero_or_nan, "nitrogen_n_imputed"] = 0.0
+inputs_df_imp_nitrogen.loc[mask_only_zero_or_nan, "nitrogen_n"] = 0.0
 
 mask_has_positive = nan_mask & has_pos
-inputs_df_imp_nitrogen.loc[mask_has_positive, "nitrogen_n_imputed"] = mean_pos_per_name[
+inputs_df_imp_nitrogen.loc[mask_has_positive, "nitrogen_n"] = mean_pos_per_name[
     mask_has_positive
 ]
 
@@ -431,7 +431,7 @@ inputs_df_imp_nitrogen.loc[mask_all_nan_group, "nitrogen_n_imputed"] = (
 # Inoculants: no direct N input (Lazcano et al. 2014). 
 inputs_df_imp_nitrogen.loc[
     inputs_df_imp_nitrogen["product_name_applied"].isin(INOCULANT_NAMES),
-    "nitrogen_n_imputed",
+    "nitrogen_n",
 ] = 0.0
 
 # Impute missing values for moisture content to enable convertion to dry amounts downstream
@@ -548,7 +548,7 @@ fert_specific = {
 
 mask_fert_kg = (
     mask_synth
-    & inputs_df_imp_estimation_syn["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"]) ## later on we include foliar and biofertilizers in the other synthetic inputs (if product category is chemichal)
+    & inputs_df_imp_estimation_syn["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER"]) 
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
 
@@ -624,7 +624,7 @@ fert_tran_dist_specific = {
 mask_fert_kg = (
     mask_synth
     & inputs_df_imp_estimation_syn["product_category"].isin(
-        ["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"] ## later on we include biofertilizers in the other synthetic inputs (if product category is chemichal)
+        ["FERTILIZER", "FOLIAR FERTILIZER"] 
     )
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 )
@@ -961,11 +961,11 @@ inputs_df_imp_flags["flag_imputed_moisture_level"] = imputation_flag(
 missing_ef_prod = inputs_df_imp_flags["ef_synth_input_prod_kg_co2eq_unit"].isna()
 missing_ef_tran = inputs_df_imp_flags["ef_synth_input_tran_dist_kg_co2eq_kg"].isna()
 
-# Application EF applies primarily to fertilizers, not pesticides
+# Application EF applies to fertilizers, not pesticides and other products
 missing_ef_app = inputs_df_imp_flags[
     "ef_synth_input_app_kg_co2eq_unit"
 ].isna() & ~inputs_df_imp_flags["product_category"].isin(
-    ["HERBICIDE", "FUNGICIDE", "INSECTICIDE"]
+    ["HERBICIDE", "FUNGICIDE", "INSECTICIDE", "BIOFERTILIZER", "ADDITIVE", "SOIL IMPROVER", "BACTERICIDE", "OTHER"]
 )
 
 inputs_df_imp_flags["flag_missing_ef_prod"] = missing_ef_prod
@@ -1051,13 +1051,16 @@ missing_est_app = inputs_df_imp_flags["synth_input_app_t_co2eq_ha"].isna()
 missing_amount = inputs_df_imp_flags["flag_imputed_amount"].isna()
 missing_ef_app = inputs_df_imp_flags["flag_missing_ef_app"]
 
+# condition to make products other than "fertilizers" and "foliar fertilizers" not applicable for the application emissions flag
+cond_not_fertilizer = ~inputs_df_imp_flags["kind_of_product_imp"].isin(["FERTILIZER", "FOLIAR FERTILIZER"])
+nf = cond_not_fertilizer
 me = missing_est_app
 ma = missing_amount
 ef = missing_ef_app
 
 inputs_df_imp_flags["flag_missing_emissions_syn_app"] = np.select(
     [
-        nc,
+        nf,
         ~me,
         me & fc,
         me & ma & ef,
@@ -1216,7 +1219,7 @@ inputs_df_aggregation = inputs_df_imp_flags.copy()
 is_synth_fert = (
     inputs_df_aggregation["kind_of_product_imp"] == "QUIMICO"
 ) & inputs_df_aggregation["product_category"].isin(
-    ["FERTILIZER", "FOLIAR FERTILIZER", "BIOFERTILIZER"]
+    ["FERTILIZER", "FOLIAR FERTILIZER"]
 )
 inputs_df_aggregation["synth_fert_amount_kg_ha"] = np.where(
     is_synth_fert, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
@@ -1281,10 +1284,9 @@ inputs_df_aggregation = (
         ),
         synth_input_app_t_co2eq_ha=(
             "synth_input_app_t_co2eq_ha",
-            lambda x: sum_applicable_if_all_available(
+            lambda x: sum_where(
                 x,
-                inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
-                APPLICABLE_KIND_SYNTHETIC,
+                inputs_df_aggregation.loc[x.index, "is_synth_fert"],
             ),
         ),
         nitrogen_org_t_ha=(
@@ -1390,6 +1392,7 @@ new_index = [
     "categories_organic",
     "synth_input_prod_t_co2eq_ha",
     "synth_input_tran_dist_t_co2eq_ha",
+    "nitrogen_n",
     "synth_input_app_t_co2eq_ha",
     "nitrogen_org_t_ha",
     "org_fert_app_t_co2eq_ha",
