@@ -389,7 +389,7 @@ soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 # We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology works with thresholds.
 RESIDUE_RETURNED_PCT = 60 # if farms return >60% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
 MIN_RESIDUE_DM_T_HA = 3  # Figure 6 shows SOC benefits growing linearly, with important gains already around 3-4 (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
-HIGH_RESIDUE_DM_T_HA = 6  # Figure 6 shows SOC benefits saturating around 8t, we set 7 as threshold for "high" residue mass (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
+HIGH_RESIDUE_DM_T_HA = 7  # Figure 6 shows SOC benefits saturating around 8t, we set 7 as threshold for "high" residue mass (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
 
 def classify_fi_level(row):
     """Classify FI level per IPCC 2019 Vol 4 Ch 5 Table 5.5."""
