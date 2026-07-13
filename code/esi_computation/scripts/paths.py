@@ -52,7 +52,7 @@ PATH_CONTINENTS = (
 )
 
 # Path to vegetation types raster
-# Source: model output (LPJmL)
+# Source: model output (LPJmL 5.7)
 PATH_VEGETATION_TYPES = (
     PATH_DATA
     / "raw"
