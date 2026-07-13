@@ -1,18 +1,12 @@
 """
-Preprocessing and emission estimation for soil organic carbon.
-
-This module performs:
-- standard cleaning steps
-- creation of tillage level column
-- assignment of IPCC coefficients for estimating SOC
-- estimation of SOC and corresponding (negative) emissions
+ML imputation of missing water consumption data using random forest.
 
 Authors:
     Dario Marone
     Giorgio Parlato
 
 Date:
-    2026-01-12
+    2026-07-13
 """
 
 # -----------------------------------------------------------------------------
@@ -23,7 +17,7 @@ import sqlite3
 
 import numpy as np
 import pandas as pd
-import janitor 
+import janitor
 import rasterio
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import OneHotEncoder
@@ -105,6 +99,7 @@ EFFICIENCY_MAP = {
     "DRIP IRRIGATION": 0.855,
 }
 
+
 # ---------------------------------------------------------------------------
 # Helper: concatenate unique sorted values or return NaN
 # ---------------------------------------------------------------------------
@@ -129,21 +124,23 @@ CLEAN_NAMES_KW = dict(
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
-# Load water tariffs from CONAGUA
+# Load water tariffs from CONAGUA (legacy code)
 water_tariffs_df = pd.read_excel(io=PATH_WATER_TARIFFS)
 
-# Load datasets to merge with irrigation
+# Load datasets to merge with irrigation after aggregation
 agronomic_df = pd.read_feather(PATH_AGRONOMIC_FEATURES)
 reference_df = pd.read_feather(PATH_REFERENCE_TABLE)
 
-logbook_df = (pd.read_excel(
+logbook_df = pd.read_excel(
     io=PATH_CIMMYT_LOGBOOK, sheet_name=SHEET_CIMMYT_LOGBOOK, header=1
-).clean_names(**CLEAN_NAMES_KW))
-logbook_df.rename(columns={"innovation_conventional_practices_id": "practice_id"}, inplace=True)
+).clean_names(**CLEAN_NAMES_KW)
+logbook_df.rename(
+    columns={"innovation_conventional_practices_id": "practice_id"}, inplace=True
+)
 
-economics_df_raw = (pd.read_excel(
+economics_df_raw = pd.read_excel(
     io=PATH_CIMMYT_ECONOMICS, sheet_name=SHEET_CIMMYT_ECONOMICS, header=1
-).clean_names(**CLEAN_NAMES_KW))
+).clean_names(**CLEAN_NAMES_KW)
 
 # ---- Water dataset ----
 water_df = (
@@ -152,12 +149,14 @@ water_df = (
     .rename(columns={"innovation_conventional_practices_id": "practice_id"})
 )
 water_df[ID_KEYS_WATER] = water_df[ID_KEYS_WATER].astype("string")
-water_df = water_df[ID_KEYS_WATER + ["year"] + WATER_MANAGEMENT_VARS + WATER_CONSUMPTION_VARS]
+water_df = water_df[
+    ID_KEYS_WATER + ["year"] + WATER_MANAGEMENT_VARS + WATER_CONSUMPTION_VARS
+]
 
-# Map irrigation efficiency
+# Map irrigation efficiency for later use (optional)
 water_df["irr_efficiency_param"] = water_df["irrigation_type"].map(EFFICIENCY_MAP)
 
-# Adjusted water consumption: use water_consumption_lt × time when total is zero
+# Total water consumption: use water_consumption_lt × time when total is zero
 time_fallback = (
     water_df[["average_irrigation_time_hr_ha", "irrigation_time_hr_ha"]]
     .bfill(axis=1)
@@ -166,21 +165,23 @@ time_fallback = (
 total_is_zero = water_df["total_water_consumption_per_irrigation_lt"] == 0
 lt_available = water_df["water_consumption_lt"].notna()
 
-water_df["adj_total_water_cons"] = np.where(
+water_df["total_water_cons"] = np.where(
     total_is_zero & lt_available,
     water_df["water_consumption_lt"] * time_fallback,
-    np.where(total_is_zero & ~lt_available, np.nan,
-                water_df["total_water_consumption_per_irrigation_lt"]),
+    np.where(
+        total_is_zero & ~lt_available,
+        np.nan,
+        water_df["total_water_consumption_per_irrigation_lt"],
+    ),
 )
 
-water_df["irr_events_per_year"] = (
-    water_df.groupby(["practice_id", "year"])["practice_id"].transform("count")
-)
+water_df["irr_events_per_year"] = water_df.groupby(["practice_id", "year"])[
+    "practice_id"
+].transform("count")
 
 # ---- Aggregate to practice-year level ----
 water_agg = (
-    water_df
-    .groupby(["farmer_id", "plot_id", "logbook_id", "practice_id", "year"])
+    water_df.groupby(["farmer_id", "plot_id", "logbook_id", "practice_id", "year"])
     .agg(
         hydric_regime=("hydric_regime", _join_unique),
         water_sources=("water_source", _join_unique),
@@ -190,15 +191,17 @@ water_agg = (
         irrigation_events_count=("id_irrigation", "nunique"),
         irr_efficiency_param=("irr_efficiency_param", "mean"),
         total_water_consumption_per_year_ha=(
-            "adj_total_water_cons",
+            "total_water_cons",
             lambda x: x.sum(min_count=1) if x.notna().all() else np.nan,
         ),
         water_consumption_flag=(
-            "adj_total_water_cons",
+            "total_water_cons",
             lambda x: (
-                "reported" if x.notna().all() else
-                "missing" if x.isna().all() else
-                "partially_missing"
+                "reported"
+                if x.notna().all()
+                else "missing"
+                if x.isna().all()
+                else "partially_missing"
             ),
         ),
     )
@@ -206,8 +209,9 @@ water_agg = (
 )
 
 # ---- Merge reference table (plot_type, coords) ----
-reference_df = reference_df[["practice_id", "logbook_id", "year",
-                                "plot_type", "latitude_n", "longitude_w"]]
+reference_df = reference_df[
+    ["practice_id", "logbook_id", "year", "plot_type", "latitude_n", "longitude_w"]
+]
 df = water_agg.merge(reference_df, on=["practice_id", "logbook_id", "year"], how="left")
 
 # ---- Merge logbook variables ----
@@ -242,12 +246,16 @@ env_df["logbook_id"] = env_df["logbook_id"].astype("string")
 df = df.merge(env_df, on="logbook_id", how="left")
 
 # ---- Merge economics (irrigation cost) ----
-econ_raw = (
-    pd.read_excel(PATH_CIMMYT_ECONOMICS, sheet_name="Data", header=1)
-    .clean_names(**CLEAN_NAMES_KW)
-)
-ID_KEYS_ECONOMICS = ["farmer_id", "plot_id", "logbook_id",
-                "innovation_practices_id", "conventional_practices_id"]
+econ_raw = pd.read_excel(
+    PATH_CIMMYT_ECONOMICS, sheet_name="Data", header=1
+).clean_names(**CLEAN_NAMES_KW)
+ID_KEYS_ECONOMICS = [
+    "farmer_id",
+    "plot_id",
+    "logbook_id",
+    "innovation_practices_id",
+    "conventional_practices_id",
+]
 econ_raw[ID_KEYS_ECONOMICS] = econ_raw[ID_KEYS_ECONOMICS].astype("string")
 
 # Split innovation / conventional, then concatenate
@@ -356,7 +364,6 @@ def build_and_impute(df, irr_type, model_params, cat_features):
 
 # ── Main ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-
     # Load and filter
     df = df[~df["irrigation_types"].str.contains(r"\|", na=False)].copy()
     print(f"Loaded {len(df):,} observations")
@@ -377,11 +384,13 @@ if __name__ == "__main__":
         df.loc[idx, "water_hybrid_ml_lt"] = imputed
 
     df["water_use_source"] = np.select(
-        [y.notna(),
-        y.isna() & df["water_hybrid_ml_lt"].notna(),
+        [
+            y.notna(),
+            y.isna() & df["water_hybrid_ml_lt"].notna(),
         ],
-        ["observed",
-         "imputed",
+        [
+            "observed",
+            "imputed",
         ],
         default="missing",
     )
@@ -396,8 +405,10 @@ if __name__ == "__main__":
 
     for irr_type in ["SURFACE IRRIGATION", "DRIP IRRIGATION"]:
         subset = df.loc[df["irrigation_types"] == irr_type, "water_hybrid_ml_lt"]
-        print(f"\n  {irr_type}: n={len(subset):,}, "
-              f"mean={subset.mean():,.0f}, median={subset.median():,.0f}")
+        print(
+            f"\n  {irr_type}: n={len(subset):,}, "
+            f"mean={subset.mean():,.0f}, median={subset.median():,.0f}"
+        )
 
 
 # -----------------------------------------------------------------------------

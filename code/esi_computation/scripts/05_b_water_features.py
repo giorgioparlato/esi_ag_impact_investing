@@ -70,7 +70,7 @@ EF_IRR_APP = 0.000148952
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
-# # Load dataset on irrigation
+# # Load dataset on irrigation (legacy code, used previously to ML imputation)
 # water_df_raw = pd.read_excel(
 #     io=PATH_CIMMYT_MEXICO_WATER,
 #     sheet_name=SHEET_CIMMYT_MEXICO_WATER
@@ -80,7 +80,7 @@ EF_IRR_APP = 0.000148952
 # -----------------------------------------------------------------------------
 # Data preprocessing
 # -----------------------------------------------------------------------------
-# # Clean column names
+# # Clean column names (legacy code, used previously to ML imputation)
 # water_df_clean_columns = water_df_raw.copy()
 # water_df_clean_columns = water_df_clean_columns.clean_names(
 #     axis="columns",
