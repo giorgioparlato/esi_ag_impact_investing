@@ -87,7 +87,7 @@ FTILL_MAPPING = {
         "Tropical Wet": 1.10,
         "Tropical Montane": 1.07, # value missing in table, we approximate with the average of the other tropical classes
     },
-   # Averaging for combinations
+       # Averaging for combinations - HOWEVER if practice includes traditional, we consider the whole farm as such
     "MINIMUM-REDUCED TILLAGE | TRADITIONAL TILLAGE": {
         "Cool Temperate Dry": (0.98 + 1) / 2,
         "Cool Temperate Moist": (1.04 + 1) / 2,
@@ -246,6 +246,7 @@ soc_df_ref = pd.read_feather(
         "farmer_id",
         "plot_id",
         "logbook_id",
+        "veg_type",
         "practice_id",
         "latitude_n",  
         "longitude_w", 
@@ -255,7 +256,6 @@ soc_df_ref = pd.read_feather(
 )
 
 # sample the IPCC soil-types raster at each farm and assign the IPCC default reference SOC  stock (climate x soil, Table 2.3)
-# The GSOCseq value sampled in script 02 is kept as`soc_ref_gsocseq` for comparison, and `soc_ref` refers to the IPCC value 
 _coords = list(zip(soc_df_ref["longitude_w"].astype(float), soc_df_ref["latitude_n"].astype(float)))
 with rasterio.open(PATH_SOIL_CLASS_IPCC) as _src:
     soc_df_ref["soil_code_ipcc"] = [v[0] for v in _src.sample(_coords)]
@@ -272,7 +272,7 @@ def lookup_socref_ipcc(row):
 
 
 soc_df_ref["soc_ref_ipcc"] = soc_df_ref.apply(lookup_socref_ipcc, axis=1).astype(float)
-# Keep GSOCseq value for reference; use the IPCC value as the active SOCref
+# Keep GSOCseq value for reference; use the IPCC value as the SOCref
 soc_df_ref = soc_df_ref.rename(columns={"soc_ref": "soc_ref_gsocseq"})
 soc_df_ref["soc_ref"] = soc_df_ref["soc_ref_ipcc"]
 
@@ -387,8 +387,9 @@ soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 # --- FI classification, IPCC 2019 Vol 4 Ch 5 Table 5.5 -------------------------------
 # --- thresholds ----------------------------------------------------------------------
 # We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology works with thresholds.
-RESIDUE_RETURNED_PCT = 60 
-HIGH_RESIDUE_DM_T_HA = 8  # threshold for "high" residue mass (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
+RESIDUE_RETURNED_PCT = 60 # if farms return >60% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
+MIN_RESIDUE_DM_T_HA = 3  # Figure 6 shows SOC benefits growing linearly, with important gains already around 3-4 (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
+HIGH_RESIDUE_DM_T_HA = 6  # Figure 6 shows SOC benefits saturating around 8t, we set 7 as threshold for "high" residue mass (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
 
 def classify_fi_level(row):
     """Classify FI level per IPCC 2019 Vol 4 Ch 5 Table 5.5."""
@@ -404,67 +405,34 @@ def classify_fi_level(row):
     category = "" if pd.isna(category) else category
     residue_mass = 0 if pd.isna(residue_mass) else residue_mass
 
-    returned = residues > RESIDUE_RETURNED_PCT
+    returned = (residues >= RESIDUE_RETURNED_PCT or residue_mass >= MIN_RESIDUE_DM_T_HA)
     has_organic = n_org_input > 0
     animal_manure = has_organic and any(t in category for t in ANIMAL_MANURE)
     nonmanure_organic = has_organic and not animal_manure
-    high_residue = residue_mass >= HIGH_RESIDUE_DM_T_HA # High residue threshold introduced to handle note 4 in Figure 5.1 where high residues can be considered as a practice increasing C input. The threshold is set to 8 t/ha dry matter (see curve in Figure 6c in Ranaivoson et al. 2017 https://doi.org/10.1007/s13593-017-0432-z)
+    min_residue = residue_mass >= MIN_RESIDUE_DM_T_HA
+    high_residue = residue_mass >= HIGH_RESIDUE_DM_T_HA # High residue threshold introduced to handle note 4 in IPCC Figure 5.1 where high residues can be considered as a practice increasing C input (see curve in Figure 6c in Ranaivoson et al. 2017 https://doi.org/10.1007/s13593-017-0432-z)
   
     mineral_fert = n_synth_input > 0
-    n_additions = mineral_fert or has_organic
-    
 
-    # Following IPCC 2019 Vol 4, Fig 5.1 and Table 5.5
+    # Following IPCC 2019 Vol 4, Fig 5.1 and Table 5.5, as well as Cool Farm Tool decision tree for assigning FI
     # Node 2: residues removed or burned? 
     if not returned:
         # Node 3: organic amendment?
-        return "Medium" if has_organic else "Low"
+        return "Medium" if (has_organic) else "Low"
     
-    # residues returned 
-    # Node 4: N-fertilisation?
-    if not n_additions:
-        return "Medium"                   
+    # # residues returned 
+    # # Node 4: N-fertilisation?
+    if not (mineral_fert or min_residue):
+        return "Low"                   
 
     # Node 5: manure or poultry litter added? 
     if animal_manure:
         return "High_with_manure"
 
     # Node 6: practice increasing C input?
-    # if nonmanure_organic or high_residue:
-    return "High_no_manure"
-    # return "Medium"
-
-## SOC JUNE
-    # # 1. manure is the sole discriminator for High_with_manure
-    # if returned and animal_manure:
-    #     return "High_with_manure"
-    # # 2. non-manure organic input or high residue mass -> input-enhancing practice
-    # if returned and (nonmanure_organic or high_residue):
-    #     return "High_no_manure"
-    # # 3. standard returned-residue cereal field with mineral fertilization
-    # if returned:
-    #     return "Medium"
-    # # 4. residues removed but compensated by supplemental organic matter
-    # if (not returned) and has_organic:
-    #     return "Medium"
-    # # 5. everything else, including removed-residue + mineral-fert-only
-    # return "Low"
-
-# # Modified SOC JUNE
-#     # 1. manure is the sole discriminator for High_with_manure
-#     if returned and animal_manure:
-#         return "High_with_manure"
-#     # 2. non-manure organic input or high residue mass -> input-enhancing practice
-#     if returned and (nonmanure_organic or high_residue):
-#         return "High_no_manure"
-#     # 3. standard returned-residue cereal field with mineral fertilization
-#     if returned:
-#         return "Medium"
-#     # 4. residues removed but compensated by supplemental organic matter
-#     if (not returned) and has_organic:
-#         return "Medium"
-#     # 5. everything else, including removed-residue + mineral-fert-only
-#     return "Low"
+    if nonmanure_organic or high_residue:
+        return "High_no_manure"
+    return "Medium"
 
 soc_df_mapping = soc_df_merged.copy()
 
@@ -501,7 +469,7 @@ def map_ftill(row):
     till_type = row.get("tillage")
     climate = row.get("climate_class", "")
 
-    if pd.isna(till_type) or till_type == "TRADITIONAL TILLAGE":
+    if pd.isna(till_type) or "TRADITIONAL TILLAGE" in str(till_type):
         return 1.00
 
     return FTILL_MAPPING.get(till_type, {}).get(climate, 1.00)
@@ -545,19 +513,19 @@ soc_df_estimation["soc_delta_t_co2eq_ha"] = (
     soc_df_estimation["soc_delta"] * 3.67 * -1 / soc_df_estimation["area_ha"]
 )
 
-# Extra tillage variable for conservation agriculture dummy
+# Extra tillage variable for conservation agriculture dummy, if includes traditional tillage, it is not considered conservation agriculture
 soc_df_estimation["tillage_ca_dummy"] = np.where(
-    soc_df_estimation["tillage"].str.contains("MINIMUM-REDUCED TILLAGE|ZERO TILLAGE"),
+    ~soc_df_estimation["tillage"].str.contains("TRADITIONAL TILLAGE", na=False),
     1,
     0,
 )
 
 # Conservation agriculture dummy based on FAO definition
 # Source: FAO CA principles https://www.fao.org/conservation-agriculture/en/
-# Source: threshold for crop residues in accordance with FAO https://doi.org/10.1007/s13593-017-0432-z
+# Source: threshold for crop residues in accordance with 30% surface cover of CA (paper mentions 2-3 dmT/ha) https://doi.org/10.1007/s13593-017-0432-z
 soc_df_estimation["ca_fao_dummy"] = np.where(
     (soc_df_estimation["tillage_ca_dummy"] == 1)
-    & (soc_df_estimation["maize_residues_surface_cover_dm_t_ha"] >= 2),
+    & (soc_df_estimation["maize_residues_surface_cover_dm_t_ha"] >= 2.5),
     1,
     0,
 )
@@ -575,6 +543,7 @@ new_index = [
     "year",
     "area_ha",
     "climate_class",
+    "soil_code_ipcc",
     "flu",
     "tillage",
     "tillage_count",
@@ -588,6 +557,7 @@ new_index = [
     "ca_fao_dummy",
     "fi_bau",
     "fi",
+    "fi_level",
     "soc_ref",
     "soc_0",
     "soc_1",
