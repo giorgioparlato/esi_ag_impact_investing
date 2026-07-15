@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Data directory
 # Uses environment variable if available; otherwise falls back to local default
 PATH_DATA = Path(
-    os.environ.get("ESI_CIMMYT_DATA", r"C:\Users\darmar07.KVA\esi_cimmyt\data")
+    os.environ.get("ESI_CIMMYT_DATA", PROJECT_ROOT.parent.parent / "data")
 ).expanduser()
 
 # -----------------------------------------------------------------------------
@@ -73,7 +73,9 @@ PATH_SOC_REF = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_organic_carbo
 PATH_SOIL_CLASS = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_classes.tif"
 
 # Path to IPCC soil-types raster (used to assign IPCC default reference SOC stocks - source: doi.org/10.1016/j.catena.2024.108258 )
-PATH_SOIL_CLASS_IPCC = PATH_DATA / "raw" / "geospatial" / "raster" / "IPCC_soiltypes_Mexico.tif"
+PATH_SOIL_CLASS_IPCC = (
+    PATH_DATA / "raw" / "geospatial" / "raster" / "IPCC_soiltypes_Mexico.tif"
+)
 
 # -----------------------------------------------------------------------------
 # Model inputs
