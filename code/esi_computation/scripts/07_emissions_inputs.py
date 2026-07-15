@@ -1392,7 +1392,6 @@ new_index = [
     "categories_organic",
     "synth_input_prod_t_co2eq_ha",
     "synth_input_tran_dist_t_co2eq_ha",
-    "nitrogen_n",
     "synth_input_app_t_co2eq_ha",
     "nitrogen_org_t_ha",
     "org_fert_app_t_co2eq_ha",
