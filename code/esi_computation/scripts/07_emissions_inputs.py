@@ -1051,8 +1051,8 @@ missing_est_app = inputs_df_imp_flags["synth_input_app_t_co2eq_ha"].isna()
 missing_amount = inputs_df_imp_flags["flag_imputed_amount"].isna()
 missing_ef_app = inputs_df_imp_flags["flag_missing_ef_app"]
 
-# condition to make products other than "fertilizers" and "foliar fertilizers" not applicable for the application emissions flag
-cond_not_fertilizer = ~inputs_df_imp_flags["kind_of_product_imp"].isin(["FERTILIZER", "FOLIAR FERTILIZER"])
+# Only chemical fertilizers / foliar fertilizers are applicable for synthetic application emissions
+cond_not_fertilizer = (inputs_df_imp_flags["kind_of_product_imp"] != "QUIMICO") | ~inputs_df_imp_flags["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER"])
 nf = cond_not_fertilizer
 me = missing_est_app
 ma = missing_amount
