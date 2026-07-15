@@ -72,6 +72,9 @@ PATH_SOC_REF = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_organic_carbo
 
 PATH_SOIL_CLASS = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_classes.tif"
 
+# Path to IPCC soil-types raster (used to assign IPCC default reference SOC stocks - source: doi.org/10.1016/j.catena.2024.108258 )
+PATH_SOIL_CLASS_IPCC = PATH_DATA / "raw" / "geospatial" / "raster" / "IPCC_soiltypes_Mexico.tif"
+
 # -----------------------------------------------------------------------------
 # Model inputs
 # -----------------------------------------------------------------------------
