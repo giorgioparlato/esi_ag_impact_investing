@@ -7,7 +7,6 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -84,9 +83,7 @@ ids_year_df = pd.read_feather(
 )
 
 # Load plot areas
-areas_df = pd.read_feather(
-    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"]
-)
+areas_df = pd.read_feather(PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"])
 
 # -----------------------------------------------------------------------------
 # Data preprocessing
@@ -152,9 +149,9 @@ fuel_df_imputation.loc[mask_fuel_motorized, "fuel_consumption_l_ha_imputed"] = (
 # that practice-level aggregation returns 0 (not NaN) for NOT APPLICABLE-only practices, distinguishing "legitimately no fuel" from "missing data".
 
 mask_zero_fill = (
-fuel_df_imputation["power_source"].notna() 
-& ~mask_fuel_motorized
-& fuel_df_imputation["fuel_consumption_l_ha_imputed"].isna()
+    fuel_df_imputation["power_source"].notna()
+    & ~mask_fuel_motorized
+    & fuel_df_imputation["fuel_consumption_l_ha_imputed"].isna()
 )
 
 fuel_df_imputation.loc[mask_zero_fill, "fuel_consumption_l_ha_imputed"] = 0
@@ -236,7 +233,7 @@ fuel_df_agg = (
 
 # Only trust the practice-level fuel total when every activity is REPORTED and/or NOT APPLICABLE. Any IMPUTED, MISSING, or UNKNOWN token disqualifies.
 mask_fuel_invalid = fuel_df_agg["fuel_cons_status"].str.contains(
-"UNKNOWN|MISSING|IMPUTED", na=False
+    "UNKNOWN|MISSING|IMPUTED", na=False
 )
 fuel_df_agg.loc[mask_fuel_invalid, ["fuel_cons_t_co2eq_ha"]] = np.nan
 

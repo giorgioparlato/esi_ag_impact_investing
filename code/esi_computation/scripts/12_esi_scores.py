@@ -7,7 +7,6 @@ Main operations:
 
 Note: this script uses **scaled** ESI metrics for improved interpretability
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------

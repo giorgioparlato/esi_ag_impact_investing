@@ -8,7 +8,6 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -272,7 +271,7 @@ for idx, row in exceeding_rows.iterrows():
     ratio_cover = (
         row["surface_cover_perc_harvest"] / total
     )  # Proportion of surface cover in the total
-    residues_df_pct.at[idx, "surface_cover_perc_harvest"] = (ratio_cover * 100)
+    residues_df_pct.at[idx, "surface_cover_perc_harvest"] = ratio_cover * 100
 
 # Define cases for flag
 # case_normal: actual sums used (any percentage available AND sum >= 80%)
@@ -335,9 +334,7 @@ residues_df_agg = residues_df_agg.groupby(
 )
 
 # Merge with agronomic data
-residues_df_merge = residues_df_agg.merge(
-    agronomic_df, on="practice_id", how="left"
-)
+residues_df_merge = residues_df_agg.merge(agronomic_df, on="practice_id", how="left")
 
 residues_df_emissions = residues_df_merge.copy()
 
@@ -409,7 +406,8 @@ residues_df_emissions["maize_residues_returned_dm_t_ha"] = residues_df_emissions
 
 residues_df_emissions["maize_residues_surface_cover_dm_t_ha"] = (
     residues_df_emissions["maize_residues_dm_t_ha"]
-    * residues_df_emissions["surface_cover_perc_harvest"].fillna(0) / 100
+    * residues_df_emissions["surface_cover_perc_harvest"].fillna(0)
+    / 100
 )
 
 # Compute the crop residue N content

@@ -1,12 +1,7 @@
 """
 ML imputation of missing water consumption data using random forest.
 
-Authors:
-    Dario Marone
-    Giorgio Parlato
-
-Date:
-    2026-07-13
+Authors: Dario Marone, Giorgio Parlato
 """
 
 # -----------------------------------------------------------------------------

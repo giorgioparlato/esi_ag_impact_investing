@@ -9,7 +9,6 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-07-13
 """
 
 # -----------------------------------------------------------------------------

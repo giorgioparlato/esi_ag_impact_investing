@@ -9,7 +9,6 @@ Main operations:
     - exporting the cleaned reference table as a feather file and to an SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-07-07
 """
 
 # -----------------------------------------------------------------------------
