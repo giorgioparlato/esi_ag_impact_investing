@@ -60,7 +60,7 @@ WATER_CONSUMPTION_VARS = [
 
 # Emission factors for irrigation equipment and application (precalculated)
 # Reference: Juárez-Hernández, S., & Pardo, C. S. (2019). Irrigation energy use and related greenhouse gas emissions of maize production in Mexico. International journal of water resources development.
-# Source: based on values in Table 7 in https://doi.org/10.1080/07900627.2018.1482739;
+# Source: based on values in Table 5 and 7 in https://doi.org/10.1080/07900627.2018.1482739;
 # average in tCO2eq per m3 of the values for summer and winter season,
 # for pressurized systems only, excluding groundwater pumping
 EF_IRR_EQUIP = 1.61319e-05
@@ -97,6 +97,7 @@ water_df_metrics = pd.read_feather(
 )
 
 # Compute reported water consumption in cubic meters per hectare
+# This column only stores reported (original )values
 water_df_metrics["water_cons_rep_m3_ha"] = np.where(
     water_df_metrics["total_water_consumption_per_year_ha"].notna(),
     water_df_metrics["total_water_consumption_per_year_ha"] * 10**-3,
@@ -114,7 +115,7 @@ water_df_metrics["water_cons_rep_adj_m3_ha"] = np.where(
     np.nan,
 )
 
-# Create a new column using the ML estimates
+# Create a new column using both the ML estimates and reported values
 water_df_metrics["water_cons_hyb_ml_m3_ha"] = (
     water_df_metrics["water_hybrid_ml_lt"] * 10**-3
 )
@@ -129,7 +130,7 @@ water_df_metrics["water_cons_hyb_ml_adj_m3_ha"] = (
 
 water_df_totals = water_df_metrics.copy()
 
-# Compute total water consumption (reported, estimated, hybrid)
+# Compute total water consumption (reported, hybrid)
 water_df_totals["water_cons_rep_m3"] = (
     water_df_totals.water_cons_rep_m3_ha * water_df_totals.area_ha
 )
@@ -152,11 +153,13 @@ water_df_totals["water_cons_hyb_ml_adj_m3"] = (
 water_df_totals["water_cons_hyb_ml_dam3"] = (
     water_df_totals.water_cons_hyb_ml_m3 * 10**-3
 )
+
+# Safe to remove if not used in the analysis
 water_df_totals["water_cons_hyb_ml_adj_dam3"] = (
     water_df_totals.water_cons_hyb_ml_adj_m3 * 10**-3
 )
 
-# Emissions based on non-adjusted hybrid water consumption estimates (cost method), per hectare basis
+# Create df for estimating emissions from water use
 water_df_emissions = water_df_totals.copy()
 
 # Emissions based on non-adjusted hybrid water consumption estimates (ML method), per hectare basis
