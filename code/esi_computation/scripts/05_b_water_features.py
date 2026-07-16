@@ -104,6 +104,7 @@ water_df_metrics["water_cons_rep_m3_ha"] = np.where(
 )
 
 # Compute reported water consumption in cubic meters per hectare, adjusted for irrigation efficiency
+# Safe to remove if not used in the analysis
 water_df_metrics["water_cons_rep_adj_m3_ha"] = np.where(
     water_df_metrics["total_water_consumption_per_year_ha"].notna()
     & water_df_metrics["irr_efficiency_param"].notna(),
@@ -119,6 +120,7 @@ water_df_metrics["water_cons_hyb_ml_m3_ha"] = (
 )
 
 # Create a new column using the ML estimates, adjusted for irrigation efficiency
+# Safe to remove if not used in the analysis
 water_df_metrics["water_cons_hyb_ml_adj_m3_ha"] = (
     water_df_metrics["water_hybrid_ml_lt"]
     * 10**-3
@@ -132,6 +134,7 @@ water_df_totals["water_cons_rep_m3"] = (
     water_df_totals.water_cons_rep_m3_ha * water_df_totals.area_ha
 )
 
+# Safe to remove if not used in the analysis
 water_df_totals["water_cons_rep_adj_m3"] = (
     water_df_totals.water_cons_rep_adj_m3_ha * water_df_totals.area_ha
 )
@@ -140,6 +143,7 @@ water_df_totals["water_cons_hyb_ml_m3"] = (
     water_df_totals.water_cons_hyb_ml_m3_ha * water_df_totals.area_ha
 )
 
+# Safe to remove if not used in the analysis
 water_df_totals["water_cons_hyb_ml_adj_m3"] = (
     water_df_totals.water_cons_hyb_ml_adj_m3_ha * water_df_totals.area_ha
 )
@@ -169,12 +173,14 @@ water_df_emissions["irr_equip_ml_tco2eq_ha"] = np.where(
 )
 
 # Emissions based on adjusted hybrid water consumption estimates (ML method), per hectare basis
+# Safe to remove if not used in the analysis
 water_df_emissions["irr_app_ml_adj_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3_ha"] * EF_IRR_APP,
     np.nan,
 )
 
+# Safe to remove if not used in the analysis
 water_df_emissions["irr_equip_ml_adj_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3_ha"] * EF_IRR_EQUIP,
@@ -195,12 +201,14 @@ water_df_emissions["irr_equip_ml_tco2eq"] = np.where(
 )
 
 # Emissions based on adjusted hybrid water consumption estimates (ML method), total
+# Safe to remove if not used in the analysis
 water_df_emissions["irr_app_ml_adj_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3"] * EF_IRR_APP,
     np.nan,
 )
 
+# Safe to remove if not used in the analysis
 water_df_emissions["irr_equip_ml_adj_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3"] * EF_IRR_EQUIP,
