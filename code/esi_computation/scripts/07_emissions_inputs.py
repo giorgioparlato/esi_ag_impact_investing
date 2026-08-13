@@ -604,7 +604,7 @@ mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
 inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n"] = 11.47
 
 # Compute emissions from synthetic input production
-inputs_df_imp_estimation_syn["synth_input_prod_t_co2eq_ha"] = (
+inputs_df_imp_estimation_syn["synth_input_prod_tco2eq_ha"] = (
     inputs_df_imp_estimation_syn["amount_of_product_applied_imputed"]
     * inputs_df_imp_estimation_syn["ef_synth_input_prod_kg_co2eq_unit"]
     / 1000
@@ -674,7 +674,7 @@ inputs_df_imp_estimation_syn.loc[
 )
 
 # Compute emissions from the import and domestic transportation plus the distribution of synthetic inputs
-inputs_df_imp_estimation_syn["synth_input_tran_dist_t_co2eq_ha"] = (
+inputs_df_imp_estimation_syn["synth_input_tran_dist_tco2eq_ha"] = (
     inputs_df_imp_estimation_syn["amount_of_product_applied_imputed"]
     * inputs_df_imp_estimation_syn["ef_synth_input_tran_dist_kg_co2eq_kg"]
     / 1000
@@ -719,7 +719,7 @@ inputs_df_imp_estimation_syn.loc[mask_n_inputs, "ef_synth_input_app_kg_co2eq_uni
 )
 
 # Compute emissions from synthetic input application
-inputs_df_imp_estimation_syn["synth_input_app_t_co2eq_ha"] = (
+inputs_df_imp_estimation_syn["synth_input_app_tco2eq_ha"] = (
     inputs_df_imp_estimation_syn["amount_of_product_applied_imputed"]
     * inputs_df_imp_estimation_syn["ef_synth_input_app_kg_co2eq_unit"]
     / 1000
@@ -933,7 +933,7 @@ CF_N2ON_N2O = 44 / 28
 # Source: https://ghgprotocol.org/sites/default/files/2024-08/Global-Warming-Potential-Values%20%28August%202024%29.pdf
 GWP_AR6_N2O = 273
 
-inputs_df_imp_estimation_org["org_fert_app_t_co2eq_ha"] = (
+inputs_df_imp_estimation_org["org_fert_app_tco2eq_ha"] = (
     inputs_df_imp_estimation_org["nitrogen_org_t_ha"]
     * 1000
     * EF_N2ON_KG_N_KG
@@ -1009,7 +1009,7 @@ inputs_df_imp_flags["flag_failed_unit_conversion"] = failed_unit_conversion
 
 # Flag for reason missing synthetic emissions
 cond_not_chemical = inputs_df_imp_flags["kind_of_product_imp"] != "QUIMICO"
-missing_est_prod = inputs_df_imp_flags["synth_input_prod_t_co2eq_ha"].isna()
+missing_est_prod = inputs_df_imp_flags["synth_input_prod_tco2eq_ha"].isna()
 missing_amount = inputs_df_imp_flags["flag_imputed_amount"].isna()
 missing_ef_prod = inputs_df_imp_flags["flag_missing_ef_prod"]
 fc = inputs_df_imp_flags["flag_failed_unit_conversion"]
@@ -1041,7 +1041,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_prod"] = np.select(
     default="OTHER/UNFLAGGED MISSING",
 )
 
-missing_est_tran = inputs_df_imp_flags["synth_input_tran_dist_t_co2eq_ha"].isna()
+missing_est_tran = inputs_df_imp_flags["synth_input_tran_dist_tco2eq_ha"].isna()
 missing_amount = inputs_df_imp_flags["flag_imputed_amount"].isna()
 missing_ef_tran = inputs_df_imp_flags["flag_missing_ef_tran"]
 
@@ -1071,7 +1071,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_tran"] = np.select(
     default="OTHER/UNFLAGGED MISSING",
 )
 
-missing_est_app = inputs_df_imp_flags["synth_input_app_t_co2eq_ha"].isna()
+missing_est_app = inputs_df_imp_flags["synth_input_app_tco2eq_ha"].isna()
 missing_amount = inputs_df_imp_flags["flag_imputed_amount"].isna()
 missing_ef_app = inputs_df_imp_flags["flag_missing_ef_app"]
 
@@ -1112,7 +1112,7 @@ cond_not_organic = (
 )
 
 # Define reasons
-missing_estimate = inputs_df_imp_flags["org_fert_app_t_co2eq_ha"].isna()
+missing_estimate = inputs_df_imp_flags["org_fert_app_tco2eq_ha"].isna()
 missing_quantity = inputs_df_imp_flags["flag_imputed_amount"].isna()
 failed_conversion = inputs_df_imp_flags["flag_failed_unit_conversion"]
 missing_moisture_param = inputs_df_imp_flags["flag_missing_moisture_parameter"]
@@ -1292,24 +1292,24 @@ inputs_df_aggregation = (
         product_categories_count=("product_category", "nunique"),
         categories_organic=("category", join_unique),
         # Emission estimates
-        synth_input_prod_t_co2eq_ha=(
-            "synth_input_prod_t_co2eq_ha",
+        synth_input_prod_tco2eq_ha=(
+            "synth_input_prod_tco2eq_ha",
             lambda x: sum_applicable_if_all_available(
                 x,
                 inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
                 APPLICABLE_KIND_SYNTHETIC,
             ),
         ),
-        synth_input_tran_dist_t_co2eq_ha=(
-            "synth_input_tran_dist_t_co2eq_ha",
+        synth_input_tran_dist_tco2eq_ha=(
+            "synth_input_tran_dist_tco2eq_ha",
             lambda x: sum_applicable_if_all_available(
                 x,
                 inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
                 APPLICABLE_KIND_SYNTHETIC,
             ),
         ),
-        synth_input_app_t_co2eq_ha=(
-            "synth_input_app_t_co2eq_ha",
+        synth_input_app_tco2eq_ha=(
+            "synth_input_app_tco2eq_ha",
             lambda x: sum_where(
                 x,
                 inputs_df_aggregation.loc[x.index, "is_synth_fert"],
@@ -1323,8 +1323,8 @@ inputs_df_aggregation = (
                 APPLICABLE_KIND_ORGANIC,
             ),
         ),
-        org_fert_app_t_co2eq_ha=(
-            "org_fert_app_t_co2eq_ha",
+        org_fert_app_tco2eq_ha=(
+            "org_fert_app_tco2eq_ha",
             lambda x: sum_applicable_if_all_available(
                 x,
                 inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
@@ -1380,20 +1380,20 @@ inputs_df_totals = inputs_df_aggregation.copy()
 inputs_df_totals = inputs_df_totals.merge(areas_df, on="practice_id", how="left")
 
 # Compute total emission estimates
-inputs_df_totals["synth_input_prod_t_co2eq"] = (
-    inputs_df_totals["synth_input_prod_t_co2eq_ha"] * inputs_df_totals["area_ha"]
+inputs_df_totals["synth_input_prod_tco2eq"] = (
+    inputs_df_totals["synth_input_prod_tco2eq_ha"] * inputs_df_totals["area_ha"]
 )
 
-inputs_df_totals["synth_input_tran_dist_t_co2eq"] = (
-    inputs_df_totals["synth_input_tran_dist_t_co2eq_ha"] * inputs_df_totals["area_ha"]
+inputs_df_totals["synth_input_tran_dist_tco2eq"] = (
+    inputs_df_totals["synth_input_tran_dist_tco2eq_ha"] * inputs_df_totals["area_ha"]
 )
 
-inputs_df_totals["synth_input_app_t_co2eq"] = (
-    inputs_df_totals["synth_input_app_t_co2eq_ha"] * inputs_df_totals["area_ha"]
+inputs_df_totals["synth_input_app_tco2eq"] = (
+    inputs_df_totals["synth_input_app_tco2eq_ha"] * inputs_df_totals["area_ha"]
 )
 
-inputs_df_totals["org_fert_app_t_co2eq"] = (
-    inputs_df_totals["org_fert_app_t_co2eq_ha"] * inputs_df_totals["area_ha"]
+inputs_df_totals["org_fert_app_tco2eq"] = (
+    inputs_df_totals["org_fert_app_tco2eq_ha"] * inputs_df_totals["area_ha"]
 )
 
 # Final DataFrame
@@ -1414,11 +1414,11 @@ new_index = [
     "product_categories",
     "product_categories_count",
     "categories_organic",
-    "synth_input_prod_t_co2eq_ha",
-    "synth_input_tran_dist_t_co2eq_ha",
-    "synth_input_app_t_co2eq_ha",
+    "synth_input_prod_tco2eq_ha",
+    "synth_input_tran_dist_tco2eq_ha",
+    "synth_input_app_tco2eq_ha",
     "nitrogen_org_t_ha",
-    "org_fert_app_t_co2eq_ha",
+    "org_fert_app_tco2eq_ha",
     "flag_missing_emissions_syn_app",
     "flag_missing_emissions_syn_prod",
     "flag_missing_emissions_syn_tran",
@@ -1429,10 +1429,10 @@ new_index = [
     "flag_imputed_moisture_level",
     "flag_pesticides_use",
     "area_ha",
-    "synth_input_prod_t_co2eq",
-    "synth_input_tran_dist_t_co2eq",
-    "synth_input_app_t_co2eq",
-    "org_fert_app_t_co2eq",
+    "synth_input_prod_tco2eq",
+    "synth_input_tran_dist_tco2eq",
+    "synth_input_app_tco2eq",
+    "org_fert_app_tco2eq",
     "pesticide_amount_kg_ha",
     "synth_fert_amount_kg_ha",
     "org_fert_dry_amount_kg_ha",

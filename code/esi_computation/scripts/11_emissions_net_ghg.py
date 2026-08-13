@@ -42,22 +42,22 @@ SELECT
     table_07_emissions_ag_inputs.flag_missing_emissions_org_app,
     table_07_emissions_ag_inputs.flag_imputed_amount,
     
-    table_07_emissions_ag_inputs.synth_input_prod_t_co2eq,
-    table_07_emissions_ag_inputs.synth_input_tran_dist_t_co2eq,
-    table_07_emissions_ag_inputs.synth_input_app_t_co2eq,
-    table_07_emissions_ag_inputs.org_fert_app_t_co2eq,
+    table_07_emissions_ag_inputs.synth_input_prod_tco2eq,
+    table_07_emissions_ag_inputs.synth_input_tran_dist_tco2eq,
+    table_07_emissions_ag_inputs.synth_input_app_tco2eq,
+    table_07_emissions_ag_inputs.org_fert_app_tco2eq,
 
     table_08_emissions_residues.flag_total_pct,
     table_08_emissions_residues.maize_residues_returned_tco2eq,
     table_08_emissions_residues.maize_grain_residues_burnt_tco2eq,
 
     table_06_emissions_fuel.fuel_cons_status,
-    table_06_emissions_fuel.fuel_cons_t_co2eq,
+    table_06_emissions_fuel.fuel_cons_tco2eq,
     table_05_water_features.irrigation_types,
-    table_05_water_features.irr_equip_ml_tco2eq,
-    table_05_water_features.irr_app_ml_tco2eq,
+    table_05_water_features.irr_equip_tco2eq,
+    table_05_water_features.irr_app_tco2eq,
 
-    table_09_emissions_soc.soc_delta_t_co2eq,
+    table_09_emissions_soc.soc_delta_tco2eq,
     table_10_emissions_albedo.albedo_emissions_tco2eq_ha,
     table_10_emissions_albedo.albedo_emissions_tco2eq
 
@@ -86,16 +86,16 @@ df = pd.read_sql_query(QUERY, conn)
 # Compute net GHG emissions based on conditions
 # GHG fluxes to include
 ghg_fluxes = [
-    "fuel_cons_t_co2eq",
-    "irr_equip_ml_tco2eq",
-    "irr_app_ml_tco2eq",
-    "synth_input_prod_t_co2eq",
-    "synth_input_tran_dist_t_co2eq",
-    "synth_input_app_t_co2eq",
-    "org_fert_app_t_co2eq",
+    "fuel_cons_tco2eq",
+    "irr_equip_tco2eq",
+    "irr_app_tco2eq",
+    "synth_input_prod_tco2eq",
+    "synth_input_tran_dist_tco2eq",
+    "synth_input_app_tco2eq",
+    "org_fert_app_tco2eq",
     "maize_residues_returned_tco2eq",
     "maize_grain_residues_burnt_tco2eq",
-    "soc_delta_t_co2eq",
+    "soc_delta_tco2eq",
 ]
 
 # Rows must have at least 1 non-null GHG flux
@@ -110,9 +110,9 @@ net_ghg_emissions_conditions = [
     df.fuel_cons_status.str.contains("UNKNOWN|MISSING|IMPUTED", na=False),
     # Exceptions for irrigation equipment and application
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_equip_ml_tco2eq.isna(),
+    & df.irr_equip_tco2eq.isna(),
     df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_app_ml_tco2eq.isna(),
+    & df.irr_app_tco2eq.isna(),
     # Exceptions for agricultural inputs
     df.flag_missing_emissions_syn_prod.str.contains(
         r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
@@ -133,7 +133,7 @@ net_ghg_emissions_conditions = [
     # Exceptions for crop residues
     df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
     # Exceptions for SOC
-    df.soc_delta_t_co2eq.isna(),
+    df.soc_delta_tco2eq.isna(),
 ]
 
 # Choices for GHG emissions
@@ -164,7 +164,7 @@ mask_nofuel_invalid = np.logical_or.reduce(
 df["net_ghg_emissions_wfuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_invalid)
 
 df["net_ghg_emissions_tco2eq"] = (
-    net_ghg_emissions_formula - df.fuel_cons_t_co2eq.fillna(0)
+    net_ghg_emissions_formula - df.fuel_cons_tco2eq.fillna(0)
 ).mask(mask_nofuel_invalid)
 
 # Per hectare net GHG emissions

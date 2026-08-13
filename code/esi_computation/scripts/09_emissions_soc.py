@@ -285,6 +285,7 @@ def lookup_socref_ipcc(row):
 
 
 soc_df_ref["soc_ref_ipcc"] = soc_df_ref.apply(lookup_socref_ipcc, axis=1).astype(float)
+
 # Keep GSOCseq value for reference; use the IPCC value as the SOCref
 soc_df_ref = soc_df_ref.rename(columns={"soc_ref": "soc_ref_gsocseq"})
 soc_df_ref["soc_ref"] = soc_df_ref["soc_ref_ipcc"]
@@ -306,7 +307,7 @@ soc_ag_inputs_df = pd.read_feather(
         "practice_id",
         "categories_organic",
         "nitrogen_org_t_ha",
-        "synth_input_app_t_co2eq_ha",  # proxy ofsynthetic nitrogen applications
+        "synth_input_app_tco2eq_ha",  # proxy of synthetic nitrogen applications
         "product_categories",
     ],
 )
@@ -409,7 +410,7 @@ def classify_fi_level(row):
     """Classify FI level per IPCC 2019 Vol 4 Ch 5 Table 5.5."""
     residues = row.get("residues_returned_perc_harvest", 0)
     n_org_input = row.get("nitrogen_org_t_ha", 0)
-    n_synth_input = row.get("synth_input_app_t_co2eq_ha", 0)
+    n_synth_input = row.get("synth_input_app_tco2eq_ha", 0)
     category = row.get("categories_organic", "")
     residue_mass = row.get("maize_residues_returned_dm_t_ha", 0)
 
@@ -523,10 +524,10 @@ soc_df_estimation["soc_delta"] = (
 
 # Conversion to (negative) carbon dioxide equivalents, to reflect carbon sequestration
 # Source: https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator#:~:text=To%20convert%20a%20quantity%20of,carbon%20dioxide%2C%20multiply%20by%203.67.
-soc_df_estimation["soc_delta_t_co2eq"] = soc_df_estimation["soc_delta"] * 3.67 * -1
+soc_df_estimation["soc_delta_tco2eq"] = soc_df_estimation["soc_delta"] * 3.67 * -1
 
 # Calculate on a per hectare basis
-soc_df_estimation["soc_delta_t_co2eq_ha"] = (
+soc_df_estimation["soc_delta_tco2eq_ha"] = (
     soc_df_estimation["soc_delta"] * 3.67 * -1 / soc_df_estimation["area_ha"]
 )
 
@@ -579,9 +580,9 @@ new_index = [
     "soc_0",
     "soc_1",
     "soc_delta",
-    "soc_delta_t_co2eq_ha",
-    "soc_delta_t_co2eq",
-    "synth_input_app_t_co2eq_ha",
+    "soc_delta_tco2eq_ha",
+    "soc_delta_tco2eq",
+    "synth_input_app_tco2eq_ha",
 ]
 
 soc_df_final = soc_df_final.reindex(columns=new_index)

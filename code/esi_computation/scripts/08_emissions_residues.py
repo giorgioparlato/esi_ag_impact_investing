@@ -87,7 +87,7 @@ SLOPE_MAIZE = 1.03
 INTERCEPT_MAIZE = 0.61
 
 # Ratio of below-ground residues to above-ground biomass
-# Source: Table 11.2 in https://www.ipcc-nggip.iges.or.jp/public/2006gl/pdf/4_Volume4/V4_11_Ch11_N2O&CO2.pdf
+# Source: Table 11.1A in https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/4_Volume4/19R_V4_Ch11_Soils_N2O_CO2.pdf#page=18.05
 BELOW_ABOVE_RATIO_MAIZE = 0.22
 
 # N content of above-ground residues in kg N / kg d.m.

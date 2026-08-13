@@ -66,10 +66,12 @@ PATH_VEGETATION_TYPES = (
 # Reference: European Soil Data Centre (ESDAC)
 PATH_CLIMATE_ZONES = PATH_DATA / "raw" / "geospatial" / "raster" / "climate_zones"
 
+# TODO (#122): legacy layer, consider removing
 # Path to SOC reference values raster
 # Reference: FAO and ITPS. 2018. Global Soil Organic Carbon Map
 PATH_SOC_REF = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_organic_carbon"
 
+# TODO (#122): legacy layer, consider removing
 PATH_SOIL_CLASS = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_classes.tif"
 
 # Path to IPCC soil-types raster (used to assign IPCC default reference SOC stocks - source: doi.org/10.1016/j.catena.2024.108258 )
