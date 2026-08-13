@@ -9,6 +9,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Data directory
 # Uses environment variable if available; otherwise falls back to local default
+# Set it for the current shell before running the pipeline, pointing to the
+# directory that contains the raw/ and processed/ folders:
+#   PowerShell: $env:ESI_CIMMYT_DATA = "C:\path\to\data"
+#   macOS/Linux: export ESI_CIMMYT_DATA="/path/to/data"
 PATH_DATA = Path(
     os.environ.get("ESI_CIMMYT_DATA", PROJECT_ROOT.parent.parent / "data")
 ).expanduser()
