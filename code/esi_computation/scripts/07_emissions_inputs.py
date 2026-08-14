@@ -300,12 +300,12 @@ inputs_df_imp_amount[target_column] = inputs_df_imp_amount.groupby(
 )[imputation_column].transform(lambda s: s.fillna(s.mean()))
 
 mask_still_missing = inputs_df_imp_amount[target_column].isna()
-category_means = inputs_df_imp_amount.groupby("product_category")[
-    imputation_column
-].mean()
-inputs_df_imp_amount.loc[mask_still_missing, target_column] = inputs_df_imp_amount.loc[
-    mask_still_missing, "product_category"
-].map(category_means)
+category_unit_means = inputs_df_imp_amount.groupby(
+    ["product_category", "units_ha"]
+)[imputation_column].transform("mean")
+inputs_df_imp_amount.loc[mask_still_missing, target_column] = category_unit_means.loc[
+    mask_still_missing
+]
 
 # Convert pesticide units from l_ha to kg_ha so we can more easily deal with them
 # Density values taken from product-specific pages, sources included in appendix table
