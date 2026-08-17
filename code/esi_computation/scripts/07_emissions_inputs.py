@@ -1009,11 +1009,36 @@ inputs_df_imp_flags["flag_missing_ef_prod"] = missing_ef_prod
 inputs_df_imp_flags["flag_missing_ef_tran"] = missing_ef_tran
 inputs_df_imp_flags["flag_missing_ef_app"] = missing_ef_app
 
-# Flags for missing moisture and nitrogen parameters (True, False)
-missing_param_moisture = inputs_df_imp_flags["moisture_parameter"].isna()
+# Organic-pathway applicability and parameter flags
+is_organic_input = inputs_df_imp_flags["kind_of_product_imp"].eq(
+    "BIOLOGICO/ETOLOGICO/ORGANICO"
+)
+is_liquid_biofert_input = is_organic_input & inputs_df_imp_flags[
+    "product_name_applied"
+].isin(LIQUID_BIOFERT_N_MG_L)
+is_inoculant_input = is_organic_input & inputs_df_imp_flags[
+    "product_name_applied"
+].isin(INOCULANT_NAMES)
+uses_standard_organic_path = (
+    is_organic_input & ~is_liquid_biofert_input & ~is_inoculant_input
+)
+
+moisture_level = inputs_df_imp_flags["product_moisture_imputed"]
+missing_moisture_level = uses_standard_organic_path & ~moisture_level.isin(
+    ["HUMEDO", "SECO"]
+)
+inputs_df_imp_flags["flag_missing_moisture_level"] = missing_moisture_level
+
+missing_param_moisture = (
+    uses_standard_organic_path
+    & moisture_level.eq("HUMEDO")
+    & inputs_df_imp_flags["moisture_parameter"].isna()
+)
 inputs_df_imp_flags["flag_missing_moisture_parameter"] = missing_param_moisture
 
-missing_param_nitrogen = inputs_df_imp_flags["nitrogen_content_pct"].isna()
+missing_param_nitrogen = uses_standard_organic_path & inputs_df_imp_flags[
+    "nitrogen_content_pct"
+].isna()
 inputs_df_imp_flags["flag_missing_nitrogen_parameter"] = missing_param_nitrogen
 
 # Flag a conversion failure only when an amount is available but its unit has
@@ -1123,69 +1148,48 @@ inputs_df_imp_flags["flag_missing_emissions_syn_app"] = np.select(
 )
 
 # Flag for reason of missing organic emissions
-cond_not_organic = (
-    inputs_df_imp_flags["kind_of_product_imp"] != "BIOLOGICO/ETOLOGICO/ORGANICO"
-)
-
-# Define reasons
 missing_estimate = inputs_df_imp_flags["org_fert_app_tco2eq_ha"].isna()
 missing_quantity = inputs_df_imp_flags["flag_imputed_amount"].isna()
-failed_conversion = inputs_df_imp_flags["flag_failed_unit_conversion"]
+missing_or_unsupported_unit = inputs_df_imp_flags[
+    "flag_failed_unit_conversion"
+] | (
+    is_liquid_biofert_input
+    & inputs_df_imp_flags["amount_of_product_applied_imputed"].notna()
+    & inputs_df_imp_flags["units_ha"].ne("L_HA")
+)
+missing_moisture = inputs_df_imp_flags["flag_missing_moisture_level"]
 missing_moisture_param = inputs_df_imp_flags["flag_missing_moisture_parameter"]
 missing_nitrogen_pct = inputs_df_imp_flags["flag_missing_nitrogen_parameter"]
 
-# Convenience variables for clarity
-no = cond_not_organic
-mq = missing_quantity
-fc = failed_conversion
-mm = missing_moisture_param
-mn = missing_nitrogen_pct
-me = missing_estimate
+missing_reasons = pd.Series("", index=inputs_df_imp_flags.index, dtype="string")
+reason_masks = [
+    (missing_quantity, "MISSING QUANTITY"),
+    (missing_or_unsupported_unit, "MISSING OR UNSUPPORTED UNIT"),
+    (missing_moisture, "MISSING MOISTURE LEVEL"),
+    (missing_moisture_param, "MISSING MOISTURE PARAMETER"),
+    (missing_nitrogen_pct, "MISSING NITROGEN PARAMETER"),
+]
 
-# Create flag
-inputs_df_imp_flags["flag_missing_emissions_org_app"] = np.select(
-    [
-        no,
-        ~me,
-        me & mq & fc & mm & mn,
-        me & mq & fc & mm,
-        me & mq & fc & mn,
-        me & mq & mm & mn,
-        me & fc & mm & mn,
-        me & mq & fc,
-        me & mq & mm,
-        me & mq & mn,
-        me & fc & mm,
-        me & fc & mn,
-        me & mm & mn,
-        me & mq,
-        me & fc,
-        me & mm,
-        me & mn,
-        me & ~mq & ~fc & ~mm & ~mn,
-    ],
-    [
-        "NOT APPLICABLE",
-        "AVAILABLE",
-        "MISSING Q + UC + MP + NP",
-        "MISSING Q + UC + MP",
-        "MISSING Q + UC + NP",
-        "MISSING Q + MP + NP",
-        "MISSING UC + MP + NP",
-        "MISSING Q + UC",
-        "MISSING Q + MP",
-        "MISSING Q + NP",
-        "MISSING UC + MP",
-        "MISSING UC + NP",
-        "MISSING MP + NP",
-        "MISSING QUANTITY",
-        "MISSING OR UNSUPPORTED UNIT",
-        "MISSING MOISTURE PARAMETER",
-        "MISSING NITROGEN PARAMETER",
-        "NO INPUTS MISSING (ESTIMATE ERROR)",
-    ],
-    default="OTHER/UNFLAGGED MISSING",  # Use a sensible default for unhandled combinations
+for reason_mask, reason_label in reason_masks:
+    active = is_organic_input & missing_estimate & reason_mask
+    current_reasons = missing_reasons.loc[active]
+    missing_reasons.loc[active] = np.where(
+        current_reasons.eq(""),
+        reason_label,
+        current_reasons + " + " + reason_label,
+    )
+
+missing_reasons = missing_reasons.mask(
+    missing_reasons.eq(""), "ESTIMATE MISSING DESPITE COMPLETE INPUTS"
 )
+organic_emissions_status = pd.Series(
+    "NOT APPLICABLE", index=inputs_df_imp_flags.index, dtype="string"
+)
+organic_emissions_status.loc[is_organic_input & ~missing_estimate] = "AVAILABLE"
+organic_emissions_status.loc[is_organic_input & missing_estimate] = (
+    missing_reasons.loc[is_organic_input & missing_estimate]
+)
+inputs_df_imp_flags["flag_missing_emissions_org_app"] = organic_emissions_status
 
 # Flag for the use of pesticides
 inputs_df_imp_flags["flag_pesticides_use"] = (

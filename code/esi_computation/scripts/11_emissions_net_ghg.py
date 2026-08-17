@@ -110,12 +110,11 @@ missing_synthetic_input_pattern = (
     r"|MISSING OR UNSUPPORTED UNIT"
     r"|\bUNIT CONVERSION\b"
 )
-missing_organic_input_pattern = (
-    r"\bMISSING Q\b"
-    r"|\bMISSING UC\b"
-    r"|MISSING OR UNSUPPORTED UNIT"
-    r"|\bUNIT CONVERSION\b"
-)
+complete_organic_input_statuses = [
+    "AVAILABLE",
+    "NOT APPLICABLE",
+    "AVAILABLE | NOT APPLICABLE",
+]
 
 # Conditions defining exceptions where net GHG emissions should be missing
 net_ghg_emissions_conditions = [
@@ -137,12 +136,7 @@ net_ghg_emissions_conditions = [
         missing_synthetic_input_pattern, na=False, regex=True
     ),
     ~df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True),
-    ~df.flag_missing_emissions_org_app.isin(
-        ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
-    )
-    & df.flag_missing_emissions_org_app.str.contains(
-        missing_organic_input_pattern, na=False, regex=True
-    ),
+    ~df.flag_missing_emissions_org_app.isin(complete_organic_input_statuses),
     # Exceptions for crop residues
     df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
     # Exceptions for SOC
