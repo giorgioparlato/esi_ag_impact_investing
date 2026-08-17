@@ -57,6 +57,7 @@ SELECT
     table_05_water_features.irr_equip_tco2eq,
     table_05_water_features.irr_app_tco2eq,
 
+    table_09_emissions_soc.flag_soc_emissions,
     table_09_emissions_soc.soc_delta_tco2eq,
     table_10_emissions_albedo.albedo_emissions_tco2eq_ha,
     table_10_emissions_albedo.albedo_emissions_tco2eq
@@ -140,7 +141,7 @@ net_ghg_emissions_conditions = [
     # Exceptions for crop residues
     ~df.flag_residue_emissions.isin(["AVAILABLE", "NOT APPLICABLE"]),
     # Exceptions for SOC
-    df.soc_delta_tco2eq.isna(),
+    ~df.flag_soc_emissions.eq("AVAILABLE"),
 ]
 
 # Choices for GHG emissions

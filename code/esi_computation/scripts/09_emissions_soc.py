@@ -309,6 +309,8 @@ soc_ag_inputs_df = pd.read_feather(
         "nitrogen_org_t_ha",
         "synth_input_app_tco2eq_ha",  # proxy of synthetic nitrogen applications
         "product_categories",
+        "flag_missing_emissions_syn_app",
+        "flag_missing_emissions_org_app",
     ],
 )
 
@@ -323,6 +325,7 @@ soc_crop_res_df = pd.read_feather(
         "residues_returned_perc_harvest",
         "maize_residues_returned_dm_t_ha",
         "maize_residues_surface_cover_dm_t_ha",
+        "flag_residue_emissions",
     ],
 )
 
@@ -398,6 +401,16 @@ soc_df_merged = soc_df_merged.merge(soc_ag_inputs_df, on=labels, how="left")
 soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 
 
+def append_reason(reasons: pd.Series, mask: pd.Series, label: str) -> None:
+    """Append a reason label to selected rows of a pipe-delimited status."""
+    current = reasons.loc[mask]
+    reasons.loc[mask] = np.where(
+        current.eq(""),
+        label,
+        current + " | " + label,
+    )
+
+
 # --- FI classification, IPCC 2019 Vol 4 Ch 5 Table 5.5 -------------------------------
 # --- thresholds ----------------------------------------------------------------------
 # We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology works with thresholds.
@@ -454,6 +467,68 @@ def classify_fi_level(row):
 
 soc_df_mapping = soc_df_merged.copy()
 
+# Record accepted defaults separately from calculation completeness.
+soc_assumptions = pd.Series("", index=soc_df_mapping.index, dtype="string")
+
+missing_tillage = soc_df_mapping["tillage"].isna()
+append_reason(
+    soc_assumptions,
+    missing_tillage,
+    "TILLAGE ASSUMED TRADITIONAL",
+)
+
+residue_not_applicable = soc_df_mapping["flag_residue_emissions"].eq(
+    "NOT APPLICABLE"
+)
+missing_residue_input = (
+    soc_df_mapping[
+        ["residues_returned_perc_harvest", "maize_residues_returned_dm_t_ha"]
+    ]
+    .isna()
+    .any(axis=1)
+    & ~residue_not_applicable
+)
+append_reason(
+    soc_assumptions,
+    missing_residue_input,
+    "MISSING RESIDUE INPUT TREATED AS ZERO",
+)
+
+organic_not_applicable = soc_df_mapping["flag_missing_emissions_org_app"].eq(
+    "NOT APPLICABLE"
+)
+missing_organic_input = (
+    soc_df_mapping["nitrogen_org_t_ha"].isna() & ~organic_not_applicable
+)
+append_reason(
+    soc_assumptions,
+    missing_organic_input,
+    "MISSING ORGANIC INPUT TREATED AS ZERO",
+)
+
+synthetic_not_applicable = soc_df_mapping["flag_missing_emissions_syn_app"].eq(
+    "NOT APPLICABLE"
+)
+missing_synthetic_input = (
+    soc_df_mapping["synth_input_app_tco2eq_ha"].isna()
+    & ~synthetic_not_applicable
+)
+append_reason(
+    soc_assumptions,
+    missing_synthetic_input,
+    "MISSING SYNTHETIC INPUT TREATED AS ZERO",
+)
+
+missing_organic_category = (
+    soc_df_mapping["nitrogen_org_t_ha"].fillna(0).gt(0)
+    & soc_df_mapping["categories_organic"].isna()
+)
+append_reason(
+    soc_assumptions,
+    missing_organic_category,
+    "MISSING ORGANIC CATEGORY ASSUMED NON-MANURE",
+)
+
 soc_df_mapping["fi_level"] = soc_df_mapping.apply(classify_fi_level, axis=1)
 
 
@@ -496,6 +571,25 @@ def map_ftill(row):
 # Apply the mapping
 soc_df_mapping["ftill"] = soc_df_mapping.apply(map_ftill, axis=1)
 
+traditional_tillage = soc_df_mapping["tillage"].str.contains(
+    "TRADITIONAL TILLAGE", na=False
+)
+mapped_tillage_factor = soc_df_mapping.apply(
+    lambda row: row["tillage"] in FTILL_MAPPING
+    and row["climate_class"] in FTILL_MAPPING[row["tillage"]],
+    axis=1,
+)
+defaulted_tillage_factor = ~traditional_tillage & ~mapped_tillage_factor
+append_reason(
+    soc_assumptions,
+    defaulted_tillage_factor,
+    "TILLAGE FACTOR DEFAULTED TO 1",
+)
+
+soc_df_mapping["flag_soc_assumptions"] = soc_assumptions.mask(
+    soc_assumptions.eq(""), "NO ASSUMPTIONS"
+)
+
 # SOC estimation
 soc_df_estimation = soc_df_mapping.copy()
 
@@ -531,6 +625,48 @@ soc_df_estimation["soc_delta_tco2eq_ha"] = (
     soc_df_estimation["soc_delta"] * 3.67 * -1 / soc_df_estimation["area_ha"]
 )
 
+# Explain why an SOC estimate is unavailable. Accepted defaults remain available
+# and are documented separately in flag_soc_assumptions.
+soc_missing_reasons = pd.Series(
+    "", index=soc_df_estimation.index, dtype="string"
+)
+climate_issue = ~soc_df_estimation["climate_class"].isin(FLU_MAPPING)
+soc_completeness_masks = [
+    (climate_issue, "MISSING OR UNSUPPORTED CLIMATE CLASS"),
+    (soc_df_estimation["soc_ref"].isna(), "MISSING REFERENCE SOC"),
+    (
+        soc_df_estimation["area_ha"].isna() | soc_df_estimation["area_ha"].le(0),
+        "MISSING OR INVALID AREA",
+    ),
+    (soc_df_estimation["flu"].isna(), "MISSING LAND-USE FACTOR"),
+    (
+        soc_df_estimation[["fi", "fi_bau"]].isna().any(axis=1),
+        "MISSING SOC INPUT FACTOR",
+    ),
+    (soc_df_estimation["ftill"].isna(), "MISSING TILLAGE FACTOR"),
+]
+
+for reason_mask, reason_label in soc_completeness_masks:
+    append_reason(soc_missing_reasons, reason_mask, reason_label)
+
+unexplained_missing_soc = (
+    soc_df_estimation["soc_delta_tco2eq"].isna()
+    & soc_missing_reasons.eq("")
+)
+append_reason(
+    soc_missing_reasons,
+    unexplained_missing_soc,
+    "ESTIMATE MISSING DESPITE COMPLETE INPUTS",
+)
+
+soc_emissions_status = pd.Series(
+    "AVAILABLE", index=soc_df_estimation.index, dtype="string"
+)
+soc_emissions_status.loc[soc_missing_reasons.ne("")] = soc_missing_reasons.loc[
+    soc_missing_reasons.ne("")
+]
+soc_df_estimation["flag_soc_emissions"] = soc_emissions_status
+
 # Extra tillage variable for conservation agriculture dummy, if includes traditional tillage, it is not considered conservation agriculture
 soc_df_estimation["tillage_ca_dummy"] = np.where(
     ~soc_df_estimation["tillage"].str.contains("TRADITIONAL TILLAGE", na=False),
@@ -559,6 +695,8 @@ new_index = [
     "logbook_id",
     "practice_id",
     "year",
+    "flag_soc_assumptions",
+    "flag_soc_emissions",
     "area_ha",
     "climate_class",
     "soil_code_ipcc",
