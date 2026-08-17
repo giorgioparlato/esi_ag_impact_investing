@@ -1251,6 +1251,17 @@ def imputation_status(x: pd.Series) -> str:
     return "PARTIALLY MISSING"
 
 
+def imputation_status_if_applicable(
+    values: pd.Series,
+    product_types: pd.Series,
+    applicable_type: str,
+) -> str:
+    applicable_values = values[product_types == applicable_type]
+    if applicable_values.empty:
+        return "NOT APPLICABLE"
+    return imputation_status(applicable_values)
+
+
 # Group and aggregate variables selectively
 inputs_df_aggregation = inputs_df_imp_flags.copy()
 
@@ -1381,7 +1392,14 @@ inputs_df_aggregation = (
         flag_imputed_product_type=("flag_imputed_product_type", imputation_status),
         flag_imputed_amount=("flag_imputed_amount", imputation_status),
         flag_imputed_nitrogen=("flag_imputed_nitrogen", imputation_status),
-        flag_imputed_moisture_level=("flag_imputed_moisture_level", imputation_status),
+        flag_imputed_moisture_level=(
+            "flag_imputed_moisture_level",
+            lambda x: imputation_status_if_applicable(
+                x,
+                inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
+                APPLICABLE_KIND_ORGANIC,
+            ),
+        ),
         flag_pesticides_use=("flag_pesticides_use", "max"),
     )
     .reset_index()
