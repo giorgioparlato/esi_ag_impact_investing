@@ -104,6 +104,19 @@ valid_rows = df[ghg_fluxes].notna().any(axis=1)
 # Default formulas for net GHG emissions
 net_ghg_emissions_formula = df[ghg_fluxes].sum(axis=1, skipna=True).where(valid_rows)
 
+# Input-emission reasons that indicate an incomplete component estimate.
+missing_synthetic_input_pattern = (
+    r"\bMISSING EMISSION FACTOR\b"
+    r"|MISSING OR UNSUPPORTED UNIT"
+    r"|\bUNIT CONVERSION\b"
+)
+missing_organic_input_pattern = (
+    r"\bMISSING Q\b"
+    r"|\bMISSING UC\b"
+    r"|MISSING OR UNSUPPORTED UNIT"
+    r"|\bUNIT CONVERSION\b"
+)
+
 # Conditions defining exceptions where net GHG emissions should be missing
 net_ghg_emissions_conditions = [
     # Exceptions for fuel consumption
@@ -115,20 +128,20 @@ net_ghg_emissions_conditions = [
     & df.irr_app_tco2eq.isna(),
     # Exceptions for agricultural inputs
     df.flag_missing_emissions_syn_prod.str.contains(
-        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+        missing_synthetic_input_pattern, na=False, regex=True
     ),
     df.flag_missing_emissions_syn_tran.str.contains(
-        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+        missing_synthetic_input_pattern, na=False, regex=True
     ),
     df.flag_missing_emissions_syn_app.str.contains(
-        r"\bMISSING EMISSION FACTOR\b", na=False, regex=True
+        missing_synthetic_input_pattern, na=False, regex=True
     ),
     ~df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True),
     ~df.flag_missing_emissions_org_app.isin(
         ["AVAILABLE", "NOT APPLICABLE", "AVAILABLE | NOT APPLICABLE"]
     )
     & df.flag_missing_emissions_org_app.str.contains(
-        r"\bMISSING Q\b", na=False, regex=True
+        missing_organic_input_pattern, na=False, regex=True
     ),
     # Exceptions for crop residues
     df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),

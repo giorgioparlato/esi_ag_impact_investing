@@ -1016,8 +1016,11 @@ inputs_df_imp_flags["flag_missing_moisture_parameter"] = missing_param_moisture
 missing_param_nitrogen = inputs_df_imp_flags["nitrogen_content_pct"].isna()
 inputs_df_imp_flags["flag_missing_nitrogen_parameter"] = missing_param_nitrogen
 
-# Flag for failed unit conversion (True, False)
-failed_unit_conversion = inputs_df_imp_flags["amount_harmonized_t_ha"].isna()
+# Flag a conversion failure only when an amount is available but its unit has
+# no supported conversion factor. Missing amounts are diagnosed separately.
+failed_unit_conversion = inputs_df_imp_flags[
+    "amount_of_product_applied_imputed"
+].notna() & inputs_df_imp_flags["unit_conversion_factor"].isna()
 inputs_df_imp_flags["flag_failed_unit_conversion"] = failed_unit_conversion
 
 # Flag for reason missing synthetic emissions
@@ -1045,7 +1048,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_prod"] = np.select(
     [
         "NOT APPLICABLE",
         "NOT MISSING",
-        "UNIT CONVERSION",
+        "MISSING OR UNSUPPORTED UNIT",
         "MISSING AMOUNT + EF",
         "MISSING AMOUNT",
         "MISSING EMISSION FACTOR",
@@ -1075,7 +1078,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_tran"] = np.select(
     [
         "NOT APPLICABLE",
         "NOT MISSING",
-        "UNIT CONVERSION",
+        "MISSING OR UNSUPPORTED UNIT",
         "MISSING AMOUNT + EF",
         "MISSING AMOUNT",
         "MISSING EMISSION FACTOR",
@@ -1110,7 +1113,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_app"] = np.select(
     [
         "NOT APPLICABLE",
         "NOT MISSING",
-        "UNIT CONVERSION",
+        "MISSING OR UNSUPPORTED UNIT",
         "MISSING AMOUNT + EF",
         "MISSING AMOUNT",
         "MISSING EMISSION FACTOR",
@@ -1176,7 +1179,7 @@ inputs_df_imp_flags["flag_missing_emissions_org_app"] = np.select(
         "MISSING UC + NP",
         "MISSING MP + NP",
         "MISSING QUANTITY",
-        "UNIT CONVERSION",
+        "MISSING OR UNSUPPORTED UNIT",
         "MISSING MOISTURE PARAMETER",
         "MISSING NITROGEN PARAMETER",
         "NO INPUTS MISSING (ESTIMATE ERROR)",
