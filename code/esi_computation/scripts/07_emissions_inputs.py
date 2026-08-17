@@ -391,8 +391,8 @@ inputs_df_imp_new_units = convert_L_to_KG(inputs_df_imp_amount)
 # Imputing nitrogen content
 inputs_df_imp_nitrogen = inputs_df_imp_new_units.copy()
 
-# Original column
-n = inputs_df_imp_nitrogen["nitrogen_n"]
+# Preserve the reported values and store all inferred values separately.
+n = inputs_df_imp_nitrogen["nitrogen_n"].copy()
 
 # Groups
 g = inputs_df_imp_nitrogen.groupby("product_name_applied")["nitrogen_n"]
@@ -413,22 +413,28 @@ inputs_df_imp_nitrogen["nitrogen_n_imputed"] = n.copy()
 nan_mask = n.isna()
 
 mask_only_zero_or_nan = nan_mask & has_zero & ~has_pos & ~all_nan
-inputs_df_imp_nitrogen.loc[mask_only_zero_or_nan, "nitrogen_n"] = 0.0
+inputs_df_imp_nitrogen.loc[
+    mask_only_zero_or_nan, "nitrogen_n_imputed"
+] = 0.0
 
 mask_has_positive = nan_mask & has_pos
-inputs_df_imp_nitrogen.loc[mask_has_positive, "nitrogen_n"] = mean_pos_per_name[
-    mask_has_positive
-]
+inputs_df_imp_nitrogen.loc[
+    mask_has_positive, "nitrogen_n_imputed"
+] = mean_pos_per_name[mask_has_positive]
 
 mask_all_nan_group = nan_mask & all_nan
 inputs_df_imp_nitrogen.loc[mask_all_nan_group, "nitrogen_n_imputed"] = (
     mean_per_category[mask_all_nan_group]
 )
 
-# Inoculants: no direct N input (Lazcano et al. 2014).
+# Fill missing inoculant N with zero direct N input (Lazcano et al. 2014).
+mask_inoculant_missing_n = (
+    inputs_df_imp_nitrogen["product_name_applied"].isin(INOCULANT_NAMES)
+    & n.isna()
+)
 inputs_df_imp_nitrogen.loc[
-    inputs_df_imp_nitrogen["product_name_applied"].isin(INOCULANT_NAMES),
-    "nitrogen_n",
+    mask_inoculant_missing_n,
+    "nitrogen_n_imputed",
 ] = 0.0
 
 # Impute missing values for moisture content to enable convertion to dry amounts downstream
@@ -594,14 +600,19 @@ inputs_df_imp_estimation_syn.loc[
     * 1.22
 )
 
-# Assign nitrogen content percentage for all Bayfolan Forte in KG_HA
+# Fill missing Bayfolan Forte nitrogen content with the product-specific percentage.
 # Source: https://www.micultivo.bayer.com.mx/content/dam/regional-folders/latam/norla/mexico/spanish/image/producto-ficha-tecnica/Bayfolan-Forte-Ficha-tecnica.pdf
 
 mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
     "BAYFOLAN FORTE"
 ) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 
-inputs_df_imp_estimation_syn.loc[mask_bayfolan, "nitrogen_n"] = 11.47
+mask_bayfolan_missing_n = mask_bayfolan & inputs_df_imp_estimation_syn[
+    "nitrogen_n"
+].isna()
+inputs_df_imp_estimation_syn.loc[
+    mask_bayfolan_missing_n, "nitrogen_n_imputed"
+] = 11.47
 
 # Compute emissions from synthetic input production
 inputs_df_imp_estimation_syn["synth_input_prod_tco2eq_ha"] = (
@@ -709,13 +720,15 @@ mask_n_inputs = (
     )
     & inputs_df_imp_estimation_syn["product_name_applied"].ne("UREA")
     & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
-    & (inputs_df_imp_estimation_syn["nitrogen_n"] >= 0)
+    & (inputs_df_imp_estimation_syn["nitrogen_n_imputed"] >= 0)
 )
 
 # Source: compiled from equation 20 in reference
 # Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 inputs_df_imp_estimation_syn.loc[mask_n_inputs, "ef_synth_input_app_kg_co2eq_unit"] = (
-    4.29 * inputs_df_imp_estimation_syn.loc[mask_n_inputs, "nitrogen_n"] / 100
+    4.29
+    * inputs_df_imp_estimation_syn.loc[mask_n_inputs, "nitrogen_n_imputed"]
+    / 100
 )
 
 # Compute emissions from synthetic input application
