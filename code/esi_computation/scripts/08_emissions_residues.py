@@ -35,6 +35,7 @@ from paths import (
 # Constants
 # -----------------------------------------------------------------------------
 KEY_IDS = ["farmer_id", "plot_id", "logbook_id", "practice_id", "activity_id"]
+GROUP_COLS = ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
 
 KEY_VARS = [
     "year",
@@ -137,10 +138,12 @@ residues_df_raw = pd.read_excel(
 agronomic_df = pd.read_feather(
     PATH_AGRONOMIC_FEATURES,
     columns=[
-        "practice_id",
+        *GROUP_COLS,
         "area_ha",
         "maize_grain_yield_t_ha",
         "maize_forage_yield_t_ha",
+        "unit_support_status_grain",
+        "unit_support_status_forage",
     ],
 )
 
@@ -282,9 +285,24 @@ case_normal = (
 # case_assumption: group medians used (fallback for incomplete data)
 case_assumption = ~case_normal
 
-# Flag indicating whether the total percent was computed under normal case (0) or assumption case (1)
+# An assumed value is available only when every fallback required downstream exists.
+fallback_available = residues_df_pct[
+    [
+        "residues_removed_perc_harvest",
+        "residues_returned_perc_harvest",
+        "surface_cover_perc_harvest",
+    ]
+].notna().all(axis=1)
+
+# Flag indicating whether the total percentage was reported, assumed, or unresolved.
 residues_df_pct["flag_total_pct"] = np.select(
-    [case_normal, case_assumption], [0, 1], np.nan
+    [case_normal, case_assumption & fallback_available], [0, 1], np.nan
+)
+
+# Burning is not imputed because total residue removal does not identify how much
+# was burned rather than grazed or removed from the plot.
+residues_df_pct["flag_burned_pct"] = np.where(
+    residues_df_pct["burned_perc_harvest"].notna(), 0, np.nan
 )
 
 
@@ -319,7 +337,7 @@ def imputation_status(x: pd.Series) -> str:
 # Aggregate at the practices id level
 residues_df_agg = residues_df_pct.copy()
 residues_df_agg = residues_df_agg.groupby(
-    ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"], as_index=False
+    GROUP_COLS, as_index=False
 ).agg(
     field_grazing_perc_harvest=("field_grazing_perc_harvest", "mean"),
     burned_perc_harvest=("burned_perc_harvest", "mean"),
@@ -331,10 +349,25 @@ residues_df_agg = residues_df_agg.groupby(
     residues_removed_perc_harvest=("residues_removed_perc_harvest", "mean"),
     surface_cover_perc_harvest=("surface_cover_perc_harvest", "mean"),
     flag_total_pct=("flag_total_pct", imputation_status),
+    flag_burned_pct=("flag_burned_pct", imputation_status),
 )
 
-# Merge with agronomic data
-residues_df_merge = residues_df_agg.merge(agronomic_df, on="practice_id", how="left")
+# Use agronomic practices as the base so missing harvest-management records remain
+# visible to the residue-completeness flag.
+residues_df_merge = agronomic_df.merge(residues_df_agg, on=GROUP_COLS, how="left")
+
+grain_target = residues_df_merge["unit_support_status_grain"].isin(
+    ["SUPPORTED", "UNSUPPORTED"]
+)
+forage_target = residues_df_merge["unit_support_status_forage"].isin(
+    ["SUPPORTED", "UNSUPPORTED"]
+)
+residue_target = grain_target | forage_target
+
+residues_df_merge.loc[~residue_target, "flag_total_pct"] = "NOT APPLICABLE"
+residues_df_merge.loc[
+    residue_target & residues_df_merge["flag_total_pct"].isna(), "flag_total_pct"
+] = "MISSING ONLY"
 
 residues_df_emissions = residues_df_merge.copy()
 
@@ -509,6 +542,77 @@ residues_df_totals["maize_grain_residues_burnt_tco2eq"] = (
     * residues_df_totals["area_ha"]
 )
 
+# Flag whether every applicable residue-emission component can be estimated.
+grain_yield_issue = grain_target & (
+    residues_df_totals["unit_support_status_grain"].eq("UNSUPPORTED")
+    | residues_df_totals["maize_grain_yield_t_ha"].isna()
+)
+forage_yield_issue = forage_target & (
+    residues_df_totals["unit_support_status_forage"].eq("UNSUPPORTED")
+    | residues_df_totals["maize_forage_yield_t_ha"].isna()
+)
+grain_active = residues_df_totals["maize_grain_yield_t_ha"].gt(1e-6)
+forage_active = residues_df_totals["maize_forage_yield_t_ha"].gt(1e-6)
+grain_may_produce_residues = grain_active | grain_yield_issue
+residue_emissions_may_apply = (
+    grain_may_produce_residues | forage_active | forage_yield_issue
+)
+
+missing_management = grain_may_produce_residues & (
+    residues_df_totals["flag_total_pct"].isin(
+        ["MISSING ONLY", "PARTIALLY MISSING"]
+    )
+    | residues_df_totals["residues_returned_perc_harvest"].isna()
+)
+missing_burned_pct = grain_may_produce_residues & ~residues_df_totals[
+    "flag_burned_pct"
+].eq("REPORTED ONLY")
+missing_area = residue_emissions_may_apply & residues_df_totals["area_ha"].isna()
+
+missing_reasons = pd.Series("", index=residues_df_totals.index, dtype="string")
+reason_masks = [
+    (
+        grain_yield_issue | forage_yield_issue,
+        "MISSING OR UNSUPPORTED YIELD",
+    ),
+    (missing_management, "MISSING RESIDUE MANAGEMENT PERCENTAGES"),
+    (missing_burned_pct, "MISSING BURNED PERCENTAGE"),
+    (missing_area, "MISSING AREA"),
+]
+
+for reason_mask, reason_label in reason_masks:
+    current_reasons = missing_reasons.loc[reason_mask]
+    missing_reasons.loc[reason_mask] = np.where(
+        current_reasons.eq(""),
+        reason_label,
+        current_reasons + " | " + reason_label,
+    )
+
+returned_estimate_missing = (
+    grain_active | forage_active
+) & residues_df_totals["maize_residues_returned_tco2eq"].isna()
+burning_estimate_missing = grain_active & residues_df_totals[
+    "maize_grain_residues_burnt_tco2eq"
+].isna()
+unexplained_missing_estimate = (
+    missing_reasons.eq("")
+    & (returned_estimate_missing | burning_estimate_missing)
+)
+missing_reasons.loc[unexplained_missing_estimate] = (
+    "ESTIMATE MISSING DESPITE COMPLETE INPUTS"
+)
+
+residue_emissions_status = pd.Series(
+    "NOT APPLICABLE", index=residues_df_totals.index, dtype="string"
+)
+residue_emissions_status.loc[
+    residue_emissions_may_apply & missing_reasons.eq("")
+] = "AVAILABLE"
+residue_emissions_status.loc[missing_reasons.ne("")] = missing_reasons.loc[
+    missing_reasons.ne("")
+]
+residues_df_totals["flag_residue_emissions"] = residue_emissions_status
+
 # Final DataFrame
 residues_df_final = residues_df_totals.sort_values(
     by=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
@@ -526,6 +630,7 @@ new_index = [
     "residues_removed_perc_harvest",
     "residues_returned_perc_harvest",
     "flag_total_pct",
+    "flag_residue_emissions",
     "area_ha",
     "maize_grain_yield_t_ha",
     "maize_grain_yield_kg_dm_ha",

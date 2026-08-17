@@ -47,7 +47,7 @@ SELECT
     table_07_emissions_ag_inputs.synth_input_app_tco2eq,
     table_07_emissions_ag_inputs.org_fert_app_tco2eq,
 
-    table_08_emissions_residues.flag_total_pct,
+    table_08_emissions_residues.flag_residue_emissions,
     table_08_emissions_residues.maize_residues_returned_tco2eq,
     table_08_emissions_residues.maize_grain_residues_burnt_tco2eq,
 
@@ -138,7 +138,7 @@ net_ghg_emissions_conditions = [
     ~df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True),
     ~df.flag_missing_emissions_org_app.isin(complete_organic_input_statuses),
     # Exceptions for crop residues
-    df.flag_total_pct.isin(["MISSING ONLY", "PARTIALLY MISSING"]),
+    ~df.flag_residue_emissions.isin(["AVAILABLE", "NOT APPLICABLE"]),
     # Exceptions for SOC
     df.soc_delta_tco2eq.isna(),
 ]
