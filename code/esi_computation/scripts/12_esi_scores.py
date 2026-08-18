@@ -47,6 +47,8 @@ SELECT
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
     table_11_emissions_net_ghg.net_ghg_emissions_wfuel_tco2eq,
     table_11_emissions_net_ghg.albedo_emissions_tco2eq,
+    table_11_emissions_net_ghg.flag_net_ghg,
+    table_11_emissions_net_ghg.flag_net_ghg_wfuel,
     table_04_economic_features.total_revenue_mxn
 
 FROM table_01_reference
@@ -71,6 +73,48 @@ df_in = pd.read_sql_query(QUERY, conn)
 # -----------------------------------------------------------------------------
 # Land ESI scores
 df_scores = df_in.copy()
+
+
+def normalize_condition(condition: pd.Series) -> pd.Series:
+    """Return a plain boolean mask, treating missing conditions as false."""
+    return condition.astype("boolean").fillna(False).astype(bool)
+
+
+def append_reason(
+    status: pd.Series, condition: pd.Series, label: str
+) -> pd.Series:
+    """Append a label to rows where a status condition applies."""
+    condition = normalize_condition(condition)
+    current = status.loc[condition]
+    status.loc[condition] = np.where(
+        current.eq(""),
+        label,
+        current + " | " + label,
+    )
+    return status
+
+
+def build_score_flag(
+    score_col: str,
+    unavailable_rules: list[tuple[str, pd.Series]],
+    available_notes: list[tuple[str, pd.Series]] | None = None,
+) -> pd.Series:
+    """Describe why a score is unavailable and note assumptions in available scores."""
+    score_available = df_scores[score_col].notna()
+    status = pd.Series("", index=df_scores.index, dtype="string")
+
+    for label, condition in unavailable_rules:
+        status = append_reason(status, ~score_available & condition, label)
+
+    status = status.mask(status.eq("") & ~score_available, "UNAVAILABLE - UNCLASSIFIED")
+    status = status.mask(score_available, "AVAILABLE")
+
+    for label, condition in available_notes or []:
+        status = append_reason(status, score_available & condition, label)
+
+    return status
+
+
 df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
@@ -127,6 +171,161 @@ esi_cols = [
 ]
 df_scores.loc[df_scores["crops"] != "MAIZE", esi_cols] = np.nan
 
+# ESI score availability and quality flags
+maize_rows = df_scores.crops.eq("MAIZE")
+missing_crop = df_scores.crops.isna()
+non_maize_rows = df_scores.crops.notna() & ~maize_rows
+
+crop_rules = [
+    ("MISSING CROP CLASSIFICATION", missing_crop),
+    ("NOT APPLICABLE - CROP IS NOT MAIZE", non_maize_rows),
+]
+
+df_scores["flag_esi_land"] = build_score_flag(
+    "esi_land",
+    crop_rules
+    + [
+        ("MISSING AREA", maize_rows & df_scores.area_km2.isna()),
+        (
+            "MISSING LAND ESI COEFFICIENT",
+            maize_rows & df_scores.luc_metric_scaled.isna(),
+        ),
+    ],
+)
+
+rainfed_rows = df_scores.hydric_regime.eq("RAINFED")
+wastewater_rows = df_scores.hydric_regime.eq("IRRIGATION") & df_scores.water_sources.eq(
+    "WASTEWATER (E.G. INDUSTRIAL AND/OR DOMESTIC USE)"
+)
+calculated_water_rows = maize_rows & ~rainfed_rows & ~wastewater_rows
+subterranean_rows = df_scores.water_sources.str.contains(
+    "SUBTERRANEAN", case=False, na=False
+)
+missing_hydric_regime = calculated_water_rows & df_scores.hydric_regime.isna()
+unsupported_hydric_regime = calculated_water_rows & ~df_scores.hydric_regime.isin(
+    ["RAINFED", "IRRIGATION"]
+)
+
+df_scores["flag_esi_water"] = build_score_flag(
+    "esi_water",
+    crop_rules
+    + [
+        (
+            "MISSING HYDRIC REGIME",
+            missing_hydric_regime,
+        ),
+        (
+            "UNSUPPORTED HYDRIC REGIME",
+            unsupported_hydric_regime & ~df_scores.hydric_regime.isna(),
+        ),
+        (
+            "MISSING WATER SOURCE",
+            calculated_water_rows & df_scores.water_sources.isna(),
+        ),
+        (
+            "SUBTERRANEAN WATER SOURCE NOT SCORED",
+            calculated_water_rows & subterranean_rows,
+        ),
+        (
+            "MISSING WATER USE",
+            calculated_water_rows & df_scores.water_cons_hyb_ml_dam3.isna(),
+        ),
+        (
+            "MISSING WATER ESI COEFFICIENT",
+            calculated_water_rows & df_scores.ro_metric_scaled.isna(),
+        ),
+    ],
+    available_notes=[
+        ("RAINFED ZERO", maize_rows & rainfed_rows),
+        ("WASTEWATER ZERO", maize_rows & wastewater_rows),
+        ("HYDRIC REGIME MISSING", missing_hydric_regime),
+        (
+            "HYDRIC REGIME UNSUPPORTED",
+            unsupported_hydric_regime & ~df_scores.hydric_regime.isna(),
+        ),
+        (
+            "WATER SOURCE MISSING",
+            calculated_water_rows & df_scores.water_sources.isna(),
+        ),
+    ],
+)
+
+df_scores["flag_esi_climate"] = build_score_flag(
+    "esi_climate",
+    crop_rules
+    + [
+        (
+            "INCOMPLETE NET GHG EMISSIONS",
+            maize_rows & ~df_scores.flag_net_ghg.eq("AVAILABLE"),
+        ),
+        (
+            "MISSING CLIMATE COEFFICIENT",
+            maize_rows & df_scores.cc_metric_rate_scaled.isna(),
+        ),
+    ],
+)
+
+df_scores["flag_esi_climate_wfuel"] = build_score_flag(
+    "esi_climate_wfuel",
+    crop_rules
+    + [
+        (
+            "INCOMPLETE NET GHG EMISSIONS WITH FUEL",
+            maize_rows & ~df_scores.flag_net_ghg_wfuel.eq("AVAILABLE"),
+        ),
+        (
+            "MISSING CLIMATE COEFFICIENT",
+            maize_rows & df_scores.cc_metric_rate_scaled.isna(),
+        ),
+    ],
+)
+
+df_scores["flag_esi_climate_albedo"] = build_score_flag(
+    "esi_climate_albedo",
+    crop_rules
+    + [
+        (
+            "MISSING ALBEDO EMISSIONS",
+            maize_rows & df_scores.albedo_emissions_tco2eq.isna(),
+        ),
+        (
+            "MISSING CLIMATE COEFFICIENT",
+            maize_rows & df_scores.cc_metric_rate_scaled.isna(),
+        ),
+    ],
+)
+
+df_scores["flag_esi_total"] = build_score_flag(
+    "esi_total",
+    crop_rules
+    + [
+        ("INCOMPLETE LAND SCORE", maize_rows & df_scores.esi_land.isna()),
+        ("INCOMPLETE WATER SCORE", maize_rows & df_scores.esi_water.isna()),
+        ("INCOMPLETE CLIMATE SCORE", maize_rows & df_scores.esi_climate.isna()),
+        (
+            "INCOMPLETE ALBEDO SCORE",
+            maize_rows & df_scores.esi_climate_albedo.isna(),
+        ),
+    ],
+)
+
+df_scores["flag_esi_total_wfuel"] = build_score_flag(
+    "esi_total_wfuel",
+    crop_rules
+    + [
+        ("INCOMPLETE LAND SCORE", maize_rows & df_scores.esi_land.isna()),
+        ("INCOMPLETE WATER SCORE", maize_rows & df_scores.esi_water.isna()),
+        (
+            "INCOMPLETE CLIMATE SCORE WITH FUEL",
+            maize_rows & df_scores.esi_climate_wfuel.isna(),
+        ),
+        (
+            "INCOMPLETE ALBEDO SCORE",
+            maize_rows & df_scores.esi_climate_albedo.isna(),
+        ),
+    ],
+)
+
 
 # ESI intensity variables
 def compute_esi_intensity_vars(df):
@@ -157,6 +356,18 @@ def compute_esi_intensity_vars(df):
 
 
 df_scores = compute_esi_intensity_vars(df_scores)
+
+df_scores["flag_esi_intensity_area"] = np.select(
+    [df_scores.area_km2.isna(), df_scores.area_km2.le(0)],
+    ["MISSING AREA", "NON-POSITIVE AREA"],
+    default="AVAILABLE",
+)
+
+df_scores["flag_esi_intensity_revenue"] = np.select(
+    [df_scores.total_revenue_mxn.isna(), df_scores.total_revenue_mxn.le(0)],
+    ["MISSING REVENUE", "NON-POSITIVE REVENUE"],
+    default="AVAILABLE",
+)
 
 # -----------------------------------------------------------------------------
 # Export data

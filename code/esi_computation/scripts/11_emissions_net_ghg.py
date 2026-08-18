@@ -149,7 +149,7 @@ common_invalidation_rules = [
         ),
     ),
     (
-        "INPUT AMOUNTS NOT REPORTED ONLY",
+        "INPUT AMOUNTS INCLUDE IMPUTED OR MISSING VALUES",
         ~df.flag_imputed_amount.str.contains(
             r"\bREPORTED ONLY\b", na=False, regex=True
         ),
