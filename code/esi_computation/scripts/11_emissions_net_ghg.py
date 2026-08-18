@@ -117,57 +117,93 @@ complete_organic_input_statuses = [
     "AVAILABLE | NOT APPLICABLE",
 ]
 
-# Conditions defining exceptions where net GHG emissions should be missing
-net_ghg_emissions_conditions = [
-    # Exceptions for fuel consumption
+# Each rule defines both an invalidation mask and its diagnostic reason.
+common_invalidation_rules = [
+    ("NO GHG COMPONENTS AVAILABLE", ~valid_rows),
+    (
+        "MISSING PRESSURIZED IRRIGATION EQUIPMENT EMISSIONS",
+        df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
+        & df.irr_equip_tco2eq.isna(),
+    ),
+    (
+        "MISSING PRESSURIZED IRRIGATION APPLICATION EMISSIONS",
+        df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
+        & df.irr_app_tco2eq.isna(),
+    ),
+    (
+        "INCOMPLETE SYNTHETIC INPUT PRODUCTION EMISSIONS",
+        df.flag_missing_emissions_syn_prod.str.contains(
+            missing_synthetic_input_pattern, na=False, regex=True
+        ),
+    ),
+    (
+        "INCOMPLETE SYNTHETIC INPUT TRANSPORT EMISSIONS",
+        df.flag_missing_emissions_syn_tran.str.contains(
+            missing_synthetic_input_pattern, na=False, regex=True
+        ),
+    ),
+    (
+        "INCOMPLETE SYNTHETIC INPUT APPLICATION EMISSIONS",
+        df.flag_missing_emissions_syn_app.str.contains(
+            missing_synthetic_input_pattern, na=False, regex=True
+        ),
+    ),
+    (
+        "INPUT AMOUNTS NOT REPORTED ONLY",
+        ~df.flag_imputed_amount.str.contains(
+            r"\bREPORTED ONLY\b", na=False, regex=True
+        ),
+    ),
+    (
+        "INCOMPLETE ORGANIC INPUT EMISSIONS",
+        ~df.flag_missing_emissions_org_app.isin(complete_organic_input_statuses),
+    ),
+    (
+        "INCOMPLETE RESIDUE EMISSIONS",
+        ~df.flag_residue_emissions.isin(["AVAILABLE", "NOT APPLICABLE"]),
+    ),
+    ("INCOMPLETE SOC EMISSIONS", ~df.flag_soc_emissions.eq("AVAILABLE")),
+]
+
+fuel_invalidation_rule = (
+    "MISSING OR UNRELIABLE FUEL",
     df.fuel_cons_status.str.contains("UNKNOWN|MISSING|IMPUTED", na=False),
-    # Exceptions for irrigation equipment and application
-    df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_equip_tco2eq.isna(),
-    df.irrigation_types.str.contains("DRIP|SPRINKLER", na=False)
-    & df.irr_app_tco2eq.isna(),
-    # Exceptions for agricultural inputs
-    df.flag_missing_emissions_syn_prod.str.contains(
-        missing_synthetic_input_pattern, na=False, regex=True
-    ),
-    df.flag_missing_emissions_syn_tran.str.contains(
-        missing_synthetic_input_pattern, na=False, regex=True
-    ),
-    df.flag_missing_emissions_syn_app.str.contains(
-        missing_synthetic_input_pattern, na=False, regex=True
-    ),
-    ~df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True),
-    ~df.flag_missing_emissions_org_app.isin(complete_organic_input_statuses),
-    # Exceptions for crop residues
-    ~df.flag_residue_emissions.isin(["AVAILABLE", "NOT APPLICABLE"]),
-    # Exceptions for SOC
-    ~df.flag_soc_emissions.eq("AVAILABLE"),
-]
-
-# Choices for GHG emissions
-net_ghg_emissions_choices = [
-    # Choices for fuel consumption
-    np.nan,
-    # Choices for irrigation application and equipment
-    np.nan,
-    np.nan,
-    # Choices for agricultural inputs
-    np.nan,
-    np.nan,
-    np.nan,
-    np.nan,
-    np.nan,
-    # Choices for crop residues
-    np.nan,
-    # Choices for SOC
-    np.nan,
-]
-
-mask_full_invalid = np.logical_or.reduce(net_ghg_emissions_conditions)
-
-mask_nofuel_invalid = np.logical_or.reduce(
-    net_ghg_emissions_conditions[1:]  # drop fuel condition
 )
+
+
+def normalize_condition(condition: pd.Series) -> pd.Series:
+    """Return a plain boolean mask, treating an unknown condition as invalid."""
+    return condition.astype("boolean").fillna(True).astype(bool)
+
+
+def invalidation_mask(rules: list[tuple[str, pd.Series]]) -> np.ndarray:
+    """Combine the boolean masks from a sequence of invalidation rules."""
+    return np.logical_or.reduce(
+        [normalize_condition(condition) for _, condition in rules]
+    )
+
+
+def invalidation_status(rules: list[tuple[str, pd.Series]]) -> pd.Series:
+    """Join all active invalidation reasons, or return AVAILABLE."""
+    reasons = pd.Series("", index=df.index, dtype="string")
+    for label, condition in rules:
+        condition = normalize_condition(condition)
+        current = reasons.loc[condition]
+        reasons.loc[condition] = np.where(
+            current.eq(""),
+            label,
+            current + " | " + label,
+        )
+    return reasons.mask(reasons.eq(""), "AVAILABLE")
+
+
+with_fuel_invalidation_rules = [fuel_invalidation_rule, *common_invalidation_rules]
+
+mask_nofuel_invalid = invalidation_mask(common_invalidation_rules)
+mask_full_invalid = invalidation_mask(with_fuel_invalidation_rules)
+
+df["flag_net_ghg"] = invalidation_status(common_invalidation_rules)
+df["flag_net_ghg_wfuel"] = invalidation_status(with_fuel_invalidation_rules)
 
 df["net_ghg_emissions_wfuel_tco2eq"] = net_ghg_emissions_formula.mask(mask_full_invalid)
 
