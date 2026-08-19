@@ -9,7 +9,6 @@ dependencies:
   - pyjanitor
   - numpy
   - scikit-learn
-  - conda-forge::python-duckdb
   - openpyxl
   - ipykernel
   - matplotlib
