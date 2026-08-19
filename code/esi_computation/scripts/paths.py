@@ -100,10 +100,11 @@ PATH_WATER_TARIFFS = PATH_DATA / "raw" / "water" / "water_tariffs_conagua.xlsx"
 # Processed tables
 # -----------------------------------------------------------------------------
 PATH_PROCESSED_TABLES = PATH_DATA / "processed" / "tables"
+PATH_PROCESSED_SUMMARIES = PATH_DATA / "processed" / "summaries"
 PATH_REFERENCE_TABLE = PATH_PROCESSED_TABLES / "table_01_reference.feather"
 PATH_REF_TABLE_ENRICHED = PATH_PROCESSED_TABLES / "table_02_reference_enriched.feather"
 PATH_AGRONOMIC_FEATURES = PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather"
-PATH_WATER_RANDOM_FOREST = PATH_PROCESSED_TABLES / "irrigation_df_ml_imputed.feather"
+PATH_WATER_IMPUTATION = PATH_PROCESSED_TABLES / "table_05_a_water_imputation.feather"
 PATH_AG_INPUTS = PATH_PROCESSED_TABLES / "table_07_emissions_ag_inputs.feather"
 PATH_CROP_RESIDUES = PATH_PROCESSED_TABLES / "table_08_emissions_residues.feather"
 
@@ -116,4 +117,5 @@ PATH_SQL_DB_EXT = PATH_DATA / "processed" / "sql_db" / "cimmytExt.db"
 # Ensure required directories exist
 # -----------------------------------------------------------------------------
 PATH_PROCESSED_TABLES.mkdir(parents=True, exist_ok=True)
+PATH_PROCESSED_SUMMARIES.mkdir(parents=True, exist_ok=True)
 PATH_SQL_DB.parent.mkdir(parents=True, exist_ok=True)

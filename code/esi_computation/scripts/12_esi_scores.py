@@ -42,8 +42,8 @@ SELECT
 
     table_03_agronomic_features.area_km2,
     table_03_agronomic_features.crops,
-    table_05_water_features.water_cons_hyb_ml_dam3,
-    table_05_water_features.water_sources,
+    table_05_b_water_features.water_cons_hyb_ml_dam3,
+    table_05_b_water_features.water_sources,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
     table_11_emissions_net_ghg.net_ghg_emissions_wfuel_tco2eq,
     table_11_emissions_net_ghg.albedo_emissions_tco2eq,
@@ -55,7 +55,7 @@ FROM table_01_reference
 
 LEFT JOIN table_02_reference_enriched USING (practice_id)
 LEFT JOIN table_03_agronomic_features USING (practice_id)
-LEFT JOIN table_05_water_features USING (practice_id)
+LEFT JOIN table_05_b_water_features USING (practice_id)
 LEFT JOIN table_11_emissions_net_ghg USING (practice_id)
 LEFT JOIN table_04_economic_features USING (practice_id)
 """

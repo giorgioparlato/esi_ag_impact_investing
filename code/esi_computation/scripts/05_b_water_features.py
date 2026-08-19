@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 from paths import (
-    PATH_WATER_RANDOM_FOREST,
+    PATH_WATER_IMPUTATION,
     PATH_PROCESSED_TABLES,
     PATH_SQL_DB,
 )
@@ -91,9 +91,9 @@ EF_IRR_APP = 0.000148952
 #     enforce_string=True,
 # )
 
-# Load Random Forest dataset
+# Load water-imputation output
 water_df_metrics = pd.read_feather(
-    PATH_WATER_RANDOM_FOREST,
+    PATH_WATER_IMPUTATION,
 )
 
 # Compute reported water consumption in cubic meters per hectare
@@ -224,12 +224,12 @@ water_df_emissions["irr_equip_adj_tco2eq"] = np.where(
 # Write feather file
 water_df_final = water_df_emissions.copy()
 
-water_df_final.to_feather(PATH_PROCESSED_TABLES / "table_05_water_features.feather")
+water_df_final.to_feather(PATH_PROCESSED_TABLES / "table_05_b_water_features.feather")
 
 # Write to SQL database
 with sqlite3.connect(PATH_SQL_DB) as con:
     water_df_final.to_sql(
-        name="table_05_water_features",
+        name="table_05_b_water_features",
         con=con,
         if_exists="replace",
         index=False,

@@ -34,7 +34,7 @@ from paths import (
     PATH_WATER_TARIFFS,
     PATH_CLIMATE_ZONES,
     PATH_SOIL_CLASS,
-    PATH_PROCESSED_TABLES,
+    PATH_WATER_IMPUTATION,
     PATH_SQL_DB,
     PATH_SQL_DB_EXT,
 )
@@ -410,12 +410,12 @@ if __name__ == "__main__":
 # Export data
 # -----------------------------------------------------------------------------
 # Write feather file
-df.to_feather(PATH_PROCESSED_TABLES / "irrigation_df_ml_imputed.feather")
+df.to_feather(PATH_WATER_IMPUTATION)
 
 # # Write to SQL database
 with sqlite3.connect(PATH_SQL_DB) as con:
     df.to_sql(
-        name="irrigation_df_ml_imputed",
+        name="table_05_a_water_imputation",
         con=con,
         if_exists="replace",
         index=False,
