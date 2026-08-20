@@ -300,9 +300,9 @@ inputs_df_imp_amount[target_column] = inputs_df_imp_amount.groupby(
 )[imputation_column].transform(lambda s: s.fillna(s.mean()))
 
 mask_still_missing = inputs_df_imp_amount[target_column].isna()
-category_unit_means = inputs_df_imp_amount.groupby(
-    ["product_category", "units_ha"]
-)[imputation_column].transform("mean")
+category_unit_means = inputs_df_imp_amount.groupby(["product_category", "units_ha"])[
+    imputation_column
+].transform("mean")
 inputs_df_imp_amount.loc[mask_still_missing, target_column] = category_unit_means.loc[
     mask_still_missing
 ]
@@ -413,14 +413,12 @@ inputs_df_imp_nitrogen["nitrogen_n_imputed"] = n.copy()
 nan_mask = n.isna()
 
 mask_only_zero_or_nan = nan_mask & has_zero & ~has_pos & ~all_nan
-inputs_df_imp_nitrogen.loc[
-    mask_only_zero_or_nan, "nitrogen_n_imputed"
-] = 0.0
+inputs_df_imp_nitrogen.loc[mask_only_zero_or_nan, "nitrogen_n_imputed"] = 0.0
 
 mask_has_positive = nan_mask & has_pos
-inputs_df_imp_nitrogen.loc[
-    mask_has_positive, "nitrogen_n_imputed"
-] = mean_pos_per_name[mask_has_positive]
+inputs_df_imp_nitrogen.loc[mask_has_positive, "nitrogen_n_imputed"] = mean_pos_per_name[
+    mask_has_positive
+]
 
 mask_all_nan_group = nan_mask & all_nan
 inputs_df_imp_nitrogen.loc[mask_all_nan_group, "nitrogen_n_imputed"] = (
@@ -429,8 +427,7 @@ inputs_df_imp_nitrogen.loc[mask_all_nan_group, "nitrogen_n_imputed"] = (
 
 # Fill missing inoculant N with zero direct N input (Lazcano et al. 2014).
 mask_inoculant_missing_n = (
-    inputs_df_imp_nitrogen["product_name_applied"].isin(INOCULANT_NAMES)
-    & n.isna()
+    inputs_df_imp_nitrogen["product_name_applied"].isin(INOCULANT_NAMES) & n.isna()
 )
 inputs_df_imp_nitrogen.loc[
     mask_inoculant_missing_n,
@@ -607,12 +604,10 @@ mask_bayfolan = inputs_df_imp_estimation_syn["product_name_applied"].eq(
     "BAYFOLAN FORTE"
 ) & inputs_df_imp_estimation_syn["units_ha"].eq("KG_HA")
 
-mask_bayfolan_missing_n = mask_bayfolan & inputs_df_imp_estimation_syn[
-    "nitrogen_n"
-].isna()
-inputs_df_imp_estimation_syn.loc[
-    mask_bayfolan_missing_n, "nitrogen_n_imputed"
-] = 11.47
+mask_bayfolan_missing_n = (
+    mask_bayfolan & inputs_df_imp_estimation_syn["nitrogen_n"].isna()
+)
+inputs_df_imp_estimation_syn.loc[mask_bayfolan_missing_n, "nitrogen_n_imputed"] = 11.47
 
 # Compute emissions from synthetic input production
 inputs_df_imp_estimation_syn["synth_input_prod_tco2eq_ha"] = (
@@ -665,7 +660,8 @@ inputs_df_imp_estimation_syn.loc[
 ] = 0.074  # NPK
 
 # Pesticides (INSECTICIDE / HERBICIDE / FUNGICIDE, KG_HA)
-# Reference:
+# Source: compiled from table A10 in supplementary material of reference
+# Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 pest_tran_factors = {
     "INSECTICIDE": 0.171,
     "HERBICIDE": 0.067,
@@ -726,9 +722,7 @@ mask_n_inputs = (
 # Source: compiled from equation 20 in reference
 # Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
 inputs_df_imp_estimation_syn.loc[mask_n_inputs, "ef_synth_input_app_kg_co2eq_unit"] = (
-    4.29
-    * inputs_df_imp_estimation_syn.loc[mask_n_inputs, "nitrogen_n_imputed"]
-    / 100
+    4.29 * inputs_df_imp_estimation_syn.loc[mask_n_inputs, "nitrogen_n_imputed"] / 100
 )
 
 # Compute emissions from synthetic input application
@@ -1036,16 +1030,17 @@ missing_param_moisture = (
 )
 inputs_df_imp_flags["flag_missing_moisture_parameter"] = missing_param_moisture
 
-missing_param_nitrogen = uses_standard_organic_path & inputs_df_imp_flags[
-    "nitrogen_content_pct"
-].isna()
+missing_param_nitrogen = (
+    uses_standard_organic_path & inputs_df_imp_flags["nitrogen_content_pct"].isna()
+)
 inputs_df_imp_flags["flag_missing_nitrogen_parameter"] = missing_param_nitrogen
 
 # Flag a conversion failure only when an amount is available but its unit has
 # no supported conversion factor. Missing amounts are diagnosed separately.
-failed_unit_conversion = inputs_df_imp_flags[
-    "amount_of_product_applied_imputed"
-].notna() & inputs_df_imp_flags["unit_conversion_factor"].isna()
+failed_unit_conversion = (
+    inputs_df_imp_flags["amount_of_product_applied_imputed"].notna()
+    & inputs_df_imp_flags["unit_conversion_factor"].isna()
+)
 inputs_df_imp_flags["flag_failed_unit_conversion"] = failed_unit_conversion
 
 # Flag for reason missing synthetic emissions
@@ -1150,9 +1145,7 @@ inputs_df_imp_flags["flag_missing_emissions_syn_app"] = np.select(
 # Flag for reason of missing organic emissions
 missing_estimate = inputs_df_imp_flags["org_fert_app_tco2eq_ha"].isna()
 missing_quantity = inputs_df_imp_flags["flag_imputed_amount"].isna()
-missing_or_unsupported_unit = inputs_df_imp_flags[
-    "flag_failed_unit_conversion"
-] | (
+missing_or_unsupported_unit = inputs_df_imp_flags["flag_failed_unit_conversion"] | (
     is_liquid_biofert_input
     & inputs_df_imp_flags["amount_of_product_applied_imputed"].notna()
     & inputs_df_imp_flags["units_ha"].ne("L_HA")
@@ -1186,9 +1179,9 @@ organic_emissions_status = pd.Series(
     "NOT APPLICABLE", index=inputs_df_imp_flags.index, dtype="string"
 )
 organic_emissions_status.loc[is_organic_input & ~missing_estimate] = "AVAILABLE"
-organic_emissions_status.loc[is_organic_input & missing_estimate] = (
-    missing_reasons.loc[is_organic_input & missing_estimate]
-)
+organic_emissions_status.loc[is_organic_input & missing_estimate] = missing_reasons.loc[
+    is_organic_input & missing_estimate
+]
 inputs_df_imp_flags["flag_missing_emissions_org_app"] = organic_emissions_status
 
 # Flag for the use of pesticides
