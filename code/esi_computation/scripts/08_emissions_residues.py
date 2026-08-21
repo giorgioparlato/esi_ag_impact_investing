@@ -224,6 +224,12 @@ group_median_removed = (
     .median()
 )
 
+group_median_burned = (
+    residues_df_pct.loc[mask_all_reported, "burned_perc_harvest"]
+    .groupby(residues_df_pct.loc[mask_all_reported, "group_activity"])
+    .median()
+)
+
 # Calculate total percentages of residues removed and returned
 # Applied to rows where any percentage is available and the sum is greater or equal to 80%
 residues_df_pct["residues_removed_perc_harvest"] = np.where(
@@ -282,6 +288,13 @@ case_normal = (
     residues_df_pct[RESIDUES_RETURNED + RESIDUES_REMOVED].notna().any(axis=1)
 ) & (sum_residues >= 80)
 
+burned_reported = residues_df_pct["burned_perc_harvest"].notna()
+
+# the median burned percentage is zero, so assigning this to missing values is not inconsistent with other group medians
+residues_df_pct["burned_perc_harvest"] = residues_df_pct["burned_perc_harvest"].fillna(
+    residues_df_pct["group_activity"].map(group_median_burned)
+)
+
 # case_assumption: group medians used (fallback for incomplete data)
 case_assumption = ~case_normal
 
@@ -299,10 +312,11 @@ residues_df_pct["flag_total_pct"] = np.select(
     [case_normal, case_assumption & fallback_available], [0, 1], np.nan
 )
 
-# Burning is not imputed because total residue removal does not identify how much
-# was burned rather than grazed or removed from the plot.
-residues_df_pct["flag_burned_pct"] = np.where(
-    residues_df_pct["burned_perc_harvest"].notna(), 0, np.nan
+# 0 = reported, 1 = assumed from the group median (or zero under case_normal).
+residues_df_pct["flag_burned_pct"] = np.select(
+    [burned_reported, residues_df_pct["burned_perc_harvest"].notna()],
+    [0, 1],
+    np.nan,
 )
 
 
@@ -354,7 +368,10 @@ residues_df_agg = residues_df_agg.groupby(
 
 # Use agronomic practices as the base so missing harvest-management records remain
 # visible to the residue-completeness flag.
-residues_df_merge = agronomic_df.merge(residues_df_agg, on=GROUP_COLS, how="left")
+residues_df_merge = agronomic_df.merge(residues_df_agg.drop(columns=["year"]), 
+    on=["practice_id", "farmer_id", "plot_id", "logbook_id"],
+    how="left"
+)
 
 grain_target = residues_df_merge["unit_support_status_grain"].isin(
     ["SUPPORTED", "UNSUPPORTED"]
@@ -367,6 +384,11 @@ residue_target = grain_target | forage_target
 residues_df_merge.loc[~residue_target, "flag_total_pct"] = "NOT APPLICABLE"
 residues_df_merge.loc[
     residue_target & residues_df_merge["flag_total_pct"].isna(), "flag_total_pct"
+] = "MISSING ONLY"
+
+residues_df_merge.loc[~residue_target, "flag_burned_pct"] = "NOT APPLICABLE"
+residues_df_merge.loc[
+    residue_target & residues_df_merge["flag_burned_pct"].isna(), "flag_burned_pct"
 ] = "MISSING ONLY"
 
 residues_df_emissions = residues_df_merge.copy()
@@ -564,9 +586,11 @@ missing_management = grain_may_produce_residues & (
     )
     | residues_df_totals["residues_returned_perc_harvest"].isna()
 )
-missing_burned_pct = grain_may_produce_residues & ~residues_df_totals[
+
+missing_burned_pct = grain_may_produce_residues & residues_df_totals[
     "flag_burned_pct"
-].eq("REPORTED ONLY")
+].isin(["MISSING ONLY", "PARTIALLY MISSING"])
+
 missing_area = residue_emissions_may_apply & residues_df_totals["area_ha"].isna()
 
 missing_reasons = pd.Series("", index=residues_df_totals.index, dtype="string")
@@ -631,6 +655,8 @@ new_index = [
     "residues_returned_perc_harvest",
     "flag_total_pct",
     "flag_residue_emissions",
+    "flag_residue_assumptions",
+    "flag_burned_pct",
     "area_ha",
     "maize_grain_yield_t_ha",
     "maize_grain_yield_kg_dm_ha",
