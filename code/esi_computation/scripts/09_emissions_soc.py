@@ -417,7 +417,7 @@ def append_reason(reasons: pd.Series, mask: pd.Series, label: str) -> None:
 # We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology we are using works with thresholds.
 RESIDUE_RETURNED_PCT = 60  # if farms return >60% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
 # High residue threshold introduced to handle note 4 in IPCC Figure 5.1 where high residues can be considered as a practice increasing C input
-HIGH_RESIDUE_DM_T_HA = 6  # HIGH_RESIDUE_DM_T_HA = 6  # 3rd quartile for residues returned in the dataset is 5.57dm_t, we set the threshold to 6dm_t to classify farms with high residues returned. Literature confirms that higher residues returned are associated with higher SOC sequestration https://doi.org/10.1007/s11027-020-09916-3
+HIGH_RESIDUE_DM_T_HA = 6  # 3rd quartile for residues returned in the dataset is 5.57dm_t, we set the threshold to 6dm_t to classify farms with high residues returned. 
 
 
 def classify_fi_level(row):
