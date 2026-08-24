@@ -324,6 +324,7 @@ soc_crop_res_df = pd.read_feather(
         "practice_id",
         "residues_returned_perc_harvest",
         "maize_residues_returned_dm_t_ha",
+        "maize_ag_residues_returned_dm_t_ha",
         "maize_residues_surface_cover_dm_t_ha",
         "flag_residue_emissions",
     ],
@@ -413,10 +414,10 @@ def append_reason(reasons: pd.Series, mask: pd.Series, label: str) -> None:
 
 # --- FI classification, IPCC 2019 Vol 4 Ch 5 Table 5.5 -------------------------------
 # --- thresholds ----------------------------------------------------------------------
-# We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology works with thresholds.
+# We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology we are using works with thresholds.
 RESIDUE_RETURNED_PCT = 60  # if farms return >60% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
-MIN_RESIDUE_DM_T_HA = 3  # Figure 6 shows SOC benefits growing linearly, with important gains already around 3-4 (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
-HIGH_RESIDUE_DM_T_HA = 7  # Figure 6 shows SOC benefits saturating around 8t, we set 7 as threshold for "high" residue mass (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
+# High residue threshold introduced to handle note 4 in IPCC Figure 5.1 where high residues can be considered as a practice increasing C input
+HIGH_RESIDUE_DM_T_HA = 6  # HIGH_RESIDUE_DM_T_HA = 6  # 3rd quartile for residues returned in the dataset is 5.57dm_t, we set the threshold to 6dm_t to classify farms with high residues returned. Literature confirms that higher residues returned are associated with higher SOC sequestration https://doi.org/10.1007/s11027-020-09916-3
 
 
 def classify_fi_level(row):
@@ -433,14 +434,13 @@ def classify_fi_level(row):
     category = "" if pd.isna(category) else category
     residue_mass = 0 if pd.isna(residue_mass) else residue_mass
 
-    returned = residues >= RESIDUE_RETURNED_PCT or residue_mass >= MIN_RESIDUE_DM_T_HA
+    returned = residues >= RESIDUE_RETURNED_PCT 
     has_organic = n_org_input > 0
     animal_manure = has_organic and any(t in category for t in ANIMAL_MANURE)
     nonmanure_organic = has_organic and not animal_manure
-    min_residue = residue_mass >= MIN_RESIDUE_DM_T_HA
     high_residue = (
         residue_mass >= HIGH_RESIDUE_DM_T_HA
-    )  # High residue threshold introduced to handle note 4 in IPCC Figure 5.1 where high residues can be considered as a practice increasing C input (see curve in Figure 6c in Ranaivoson et al. 2017 https://doi.org/10.1007/s13593-017-0432-z)
+    ) 
 
     mineral_fert = n_synth_input > 0
 
@@ -452,7 +452,7 @@ def classify_fi_level(row):
 
     # # residues returned
     # # Node 4: N-fertilisation?
-    if not (mineral_fert or min_residue):
+    if not (mineral_fert or has_organic):
         return "Low"
 
     # Node 5: manure or poultry litter added?
