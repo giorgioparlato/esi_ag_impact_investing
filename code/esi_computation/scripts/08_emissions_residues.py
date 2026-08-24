@@ -454,13 +454,33 @@ residues_df_emissions["maize_residues_dm_t_ha"] = residues_df_emissions[
     ["maize_grain_residue_dm_t_ha", "maize_forage_residue_dm_t_ha"]
 ].sum(axis=1, skipna=True, min_count=1)
 
+# Harvest management moves above-ground residue only: roots stay in the soil whatever
+# the farmer does with the stover. This matches the N accounting below, where
+# (1 - total_loss) scales grain_ag_n_kg_ha but not the below-ground terms.
+residues_df_emissions["maize_ag_residue_dm_t_ha"] = residues_df_emissions[
+    ["maize_grain_ag_residue_dm_t_ha", "maize_forage_ag_residue_dm_t_ha"]
+].sum(axis=1, skipna=True, min_count=1)
+
+residues_df_emissions["maize_bg_residue_dm_t_ha"] = residues_df_emissions[
+    ["maize_grain_bg_residue_dm_t_ha", "maize_forage_bg_residue_dm_t_ha"]
+].sum(axis=1, skipna=True, min_count=1)
+
 # Total crop residues returned (grain and forage), in t per ha
 residues_df_emissions["maize_residues_returned_dm_t_ha"] = residues_df_emissions[
-    "maize_residues_dm_t_ha"
-] * (residues_df_emissions["residues_returned_perc_harvest"].fillna(0) / 100)
+    "maize_ag_residue_dm_t_ha"
+] * (
+    residues_df_emissions["residues_returned_perc_harvest"].fillna(0) / 100
+) + residues_df_emissions["maize_bg_residue_dm_t_ha"].fillna(0)
 
+residues_df_emissions["maize_ag_residues_returned_dm_t_ha"] = residues_df_emissions[
+    "maize_ag_residue_dm_t_ha"
+] * (
+    residues_df_emissions["residues_returned_perc_harvest"].fillna(0) / 100
+)
+
+# Surface cover is above-ground by definition.
 residues_df_emissions["maize_residues_surface_cover_dm_t_ha"] = (
-    residues_df_emissions["maize_residues_dm_t_ha"]
+    residues_df_emissions["maize_ag_residue_dm_t_ha"]
     * residues_df_emissions["surface_cover_perc_harvest"].fillna(0)
     / 100
 )
@@ -532,8 +552,9 @@ residues_df_emissions["maize_residues_returned_tco2eq_ha"] = residues_df_emissio
 ].sum(axis=1, skipna=True, min_count=1)
 
 # Compute the non-CO2 emissions from crop residues burning
+# Burning consumes above-ground residue only; below-ground residue is unaffected.
 residues_df_emissions["maize_grain_residues_burnt_tco2eq_ha"] = (
-    residues_df_emissions["maize_grain_residue_dm_t_ha"]
+    residues_df_emissions["maize_grain_ag_residue_dm_t_ha"]
     * 1000
     * residues_df_emissions["burned_perc_harvest"].div(100)
     * COMBUSTION_FACTOR_MAIZE
@@ -672,6 +693,7 @@ new_index = [
     "maize_forage_yield_t_ha",
     "maize_forage_yield_kg_dm_ha",
     "maize_forage_ag_biomass_dm_t_ha",
+    "maize_ag_residues_returned_dm_t_ha",
     "maize_forage_ag_residue_dm_t_ha",
     "maize_forage_bg_residue_dm_t_ha",
     "maize_forage_residue_dm_t_ha",
