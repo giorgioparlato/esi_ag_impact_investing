@@ -192,10 +192,10 @@ inputs_df_merge = inputs_df_merge.merge(
 )
 
 for col in cols_to_fill:
-	inputs_df_merge[col] = inputs_df_merge[col].combine_first(
-		inputs_df_merge[f"{col}_reference"]
-	)
-	inputs_df_merge.drop(columns=f"{col}_reference", inplace=True)
+    inputs_df_merge[col] = inputs_df_merge[col].combine_first(
+        inputs_df_merge[f"{col}_reference"]
+    )
+    inputs_df_merge.drop(columns=f"{col}_reference", inplace=True)
 
 for col in cols_to_fill:
     inputs_df_merge[col] = inputs_df_merge.groupby("logbook_id")[col].ffill()
