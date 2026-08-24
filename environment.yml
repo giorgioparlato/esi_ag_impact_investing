@@ -8,6 +8,7 @@ dependencies:
   - pyarrow
   - pyjanitor
   - numpy
+  - scikit-learn
   - openpyxl
   - ipykernel
   - matplotlib

@@ -9,7 +9,6 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -140,9 +139,9 @@ agronomic_df_units["maize_forage_yield_t_ha"] = agronomic_df_units["yield_t_ha"]
     maize_forage_mask
 )
 
-# Supported-unit flags for masks
-agronomic_df_units["grain_unit_supported"] = supported_units & maize_grain_mask
-agronomic_df_units["forage_unit_supported"] = supported_units & maize_forage_mask
+# Supported-unit flags for target rows; non-target rows are excluded from status checks
+agronomic_df_units["grain_unit_supported"] = supported_units.where(maize_grain_mask)
+agronomic_df_units["forage_unit_supported"] = supported_units.where(maize_forage_mask)
 
 # Group and aggregate variables selectively
 group_cols = ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
@@ -157,9 +156,10 @@ def sum_min_count(x):
 
 
 def unit_support_status(x):
-    if not x.any():
+    target_rows = x.dropna()
+    if target_rows.empty:
         return "NOT APPLICABLE"
-    elif x.all():
+    elif target_rows.all():
         return "SUPPORTED"
     else:
         return "UNSUPPORTED"

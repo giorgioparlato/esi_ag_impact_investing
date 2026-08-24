@@ -1,15 +1,14 @@
 """
 Preprocessing of the logbook dataset by CIMMYT.
-The main operations are:
+Main operations:
     - cleaning column names
     - adjusting data types
-    - dropping rows with key information
+    - dropping rows missing key information
     - dropping plots with multiple coordinates
     - selecting variables
     - exporting the cleaned reference table as a feather file and to an SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------

@@ -2,7 +2,6 @@
 Clean and reshape cost and revenue data, compute economic metrics.
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -11,6 +10,9 @@ Date: 2026-02-19
 import sqlite3
 from pathlib import Path
 
+# -----------------------------------------------------------------------------
+# Paths
+# -----------------------------------------------------------------------------
 import janitor
 import pandas as pd
 import numpy as np
@@ -158,11 +160,13 @@ economics_df_metrics["net_income_mxn"] = (
 )
 
 # Operating expense ratio
+# Not used in the main analysis, may be deleted
 economics_df_metrics["oer"] = (
     economics_df_metrics["total_cost_mxn"] / economics_df_metrics["total_revenue_mxn"]
 )
 
-# Retrun on investment
+# Return on investment
+# Not used in the main analysis, may be deleted
 economics_df_metrics["roi"] = (
     economics_df_metrics["net_income_mxn"] / economics_df_metrics["total_cost_mxn"]
 )

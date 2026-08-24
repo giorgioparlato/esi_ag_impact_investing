@@ -7,7 +7,6 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -84,9 +83,7 @@ ids_year_df = pd.read_feather(
 )
 
 # Load plot areas
-areas_df = pd.read_feather(
-    PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"]
-)
+areas_df = pd.read_feather(PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"])
 
 # -----------------------------------------------------------------------------
 # Data preprocessing
@@ -152,9 +149,9 @@ fuel_df_imputation.loc[mask_fuel_motorized, "fuel_consumption_l_ha_imputed"] = (
 # that practice-level aggregation returns 0 (not NaN) for NOT APPLICABLE-only practices, distinguishing "legitimately no fuel" from "missing data".
 
 mask_zero_fill = (
-fuel_df_imputation["power_source"].notna() 
-& ~mask_fuel_motorized
-& fuel_df_imputation["fuel_consumption_l_ha_imputed"].isna()
+    fuel_df_imputation["power_source"].notna()
+    & ~mask_fuel_motorized
+    & fuel_df_imputation["fuel_consumption_l_ha_imputed"].isna()
 )
 
 fuel_df_imputation.loc[mask_zero_fill, "fuel_consumption_l_ha_imputed"] = 0
@@ -190,7 +187,7 @@ fuel_df_imputation["status"] = np.select(
 # Approach based on Juarez-Hernandez et al.
 # Compute emissions from fuel consumption in CO_2 equivalent tons per hectare
 fuel_df_emissions = fuel_df_imputation.copy()
-fuel_df_emissions["fuel_cons_t_co2eq_ha"] = (
+fuel_df_emissions["fuel_cons_tco2eq_ha"] = (
     fuel_df_emissions.fuel_consumption_l_ha_imputed * EF_DIESEL_KG_CO2EQ_L
 ) / 1000
 
@@ -228,7 +225,7 @@ fuel_df_agg = (
         power_source_count=("power_source", "nunique"),
         fuel_cons_l_ha=("fuel_consumption_l_ha_imputed", sum_min_count),
         fuel_cons_status=("status", join_unique),
-        fuel_cons_t_co2eq_ha=("fuel_cons_t_co2eq_ha", sum_min_count),
+        fuel_cons_tco2eq_ha=("fuel_cons_tco2eq_ha", sum_min_count),
         power_source_availability=("missing_power_source", power_source_status),
     )
     .reset_index()
@@ -236,9 +233,9 @@ fuel_df_agg = (
 
 # Only trust the practice-level fuel total when every activity is REPORTED and/or NOT APPLICABLE. Any IMPUTED, MISSING, or UNKNOWN token disqualifies.
 mask_fuel_invalid = fuel_df_agg["fuel_cons_status"].str.contains(
-"UNKNOWN|MISSING|IMPUTED", na=False
+    "UNKNOWN|MISSING|IMPUTED", na=False
 )
-fuel_df_agg.loc[mask_fuel_invalid, ["fuel_cons_t_co2eq_ha"]] = np.nan
+fuel_df_agg.loc[mask_fuel_invalid, ["fuel_cons_tco2eq_ha"]] = np.nan
 
 # Merge with areas from the agronomic dataframe
 areas_df = areas_df.drop_duplicates(keep=False).copy()
@@ -246,8 +243,8 @@ fuel_df_totals = fuel_df_agg.copy()
 fuel_df_totals = fuel_df_totals.merge(areas_df, on="practice_id", how="left")
 
 # Compute total fuel consumption
-fuel_df_totals["fuel_cons_t_co2eq"] = (
-    fuel_df_totals.fuel_cons_t_co2eq_ha * fuel_df_totals.area_ha
+fuel_df_totals["fuel_cons_tco2eq"] = (
+    fuel_df_totals.fuel_cons_tco2eq_ha * fuel_df_totals.area_ha
 )
 
 # Final DataFrame
@@ -268,8 +265,8 @@ new_index = [
     "activity_count",
     "fuel_cons_l_ha",
     "fuel_cons_status",
-    "fuel_cons_t_co2eq_ha",
-    "fuel_cons_t_co2eq",
+    "fuel_cons_tco2eq_ha",
+    "fuel_cons_tco2eq",
 ]
 
 fuel_df_final = fuel_df_final.reindex(columns=new_index)

@@ -9,8 +9,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Data directory
 # Uses environment variable if available; otherwise falls back to local default
+# Set it for the current shell before running the pipeline, pointing to the
+# directory that contains the raw/ and processed/ folders:
+#   PowerShell: $env:ESI_CIMMYT_DATA = "C:\path\to\data"
+#   macOS/Linux: export ESI_CIMMYT_DATA="/path/to/data"
 PATH_DATA = Path(
-    os.environ.get("ESI_CIMMYT_DATA", r"C:\Users\darmar07.KVA\esi_cimmyt\data")
+    os.environ.get("ESI_CIMMYT_DATA", PROJECT_ROOT.parent.parent / "data")
 ).expanduser()
 
 # -----------------------------------------------------------------------------
@@ -52,7 +56,7 @@ PATH_CONTINENTS = (
 )
 
 # Path to vegetation types raster
-# Source: model output (LPJmL)
+# Source: model output (LPJmL 5.7)
 PATH_VEGETATION_TYPES = (
     PATH_DATA
     / "raw"
@@ -66,6 +70,7 @@ PATH_VEGETATION_TYPES = (
 # Reference: European Soil Data Centre (ESDAC)
 PATH_CLIMATE_ZONES = PATH_DATA / "raw" / "geospatial" / "raster" / "climate_zones"
 
+# TODO (#122): legacy layer, consider removing
 # Path to SOC reference values raster
 # Reference: FAO and ITPS. 2018. Global Soil Organic Carbon Map
 PATH_SOC_REF = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_organic_carbon"
@@ -73,7 +78,9 @@ PATH_SOC_REF = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_organic_carbo
 PATH_SOIL_CLASS = PATH_DATA / "raw" / "geospatial" / "raster" / "soil_classes.tif"
 
 # Path to IPCC soil-types raster (used to assign IPCC default reference SOC stocks - source: doi.org/10.1016/j.catena.2024.108258 )
-PATH_SOIL_CLASS_IPCC = PATH_DATA / "raw" / "geospatial" / "raster" / "IPCC_soiltypes_Mexico.tif"
+PATH_SOIL_CLASS_IPCC = (
+    PATH_DATA / "raw" / "geospatial" / "raster" / "IPCC_soiltypes_Mexico.tif"
+)
 
 # -----------------------------------------------------------------------------
 # Model inputs
@@ -92,10 +99,11 @@ PATH_WATER_TARIFFS = PATH_DATA / "raw" / "water" / "water_tariffs_conagua.xlsx"
 # Processed tables
 # -----------------------------------------------------------------------------
 PATH_PROCESSED_TABLES = PATH_DATA / "processed" / "tables"
+PATH_PROCESSED_SUMMARIES = PATH_DATA / "processed" / "summaries"
 PATH_REFERENCE_TABLE = PATH_PROCESSED_TABLES / "table_01_reference.feather"
 PATH_REF_TABLE_ENRICHED = PATH_PROCESSED_TABLES / "table_02_reference_enriched.feather"
 PATH_AGRONOMIC_FEATURES = PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather"
-PATH_WATER_RANDOM_FOREST = PATH_PROCESSED_TABLES / "irrigation_df_ml_imputed.feather"
+PATH_WATER_IMPUTATION = PATH_PROCESSED_TABLES / "table_05_a_water_imputation.feather"
 PATH_AG_INPUTS = PATH_PROCESSED_TABLES / "table_07_emissions_ag_inputs.feather"
 PATH_CROP_RESIDUES = PATH_PROCESSED_TABLES / "table_08_emissions_residues.feather"
 
@@ -108,4 +116,5 @@ PATH_SQL_DB_EXT = PATH_DATA / "processed" / "sql_db" / "cimmytExt.db"
 # Ensure required directories exist
 # -----------------------------------------------------------------------------
 PATH_PROCESSED_TABLES.mkdir(parents=True, exist_ok=True)
+PATH_PROCESSED_SUMMARIES.mkdir(parents=True, exist_ok=True)
 PATH_SQL_DB.parent.mkdir(parents=True, exist_ok=True)

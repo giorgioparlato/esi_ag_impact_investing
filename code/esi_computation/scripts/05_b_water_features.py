@@ -9,7 +9,6 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -23,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 from paths import (
-    PATH_WATER_RANDOM_FOREST,
+    PATH_WATER_IMPUTATION,
     PATH_PROCESSED_TABLES,
     PATH_SQL_DB,
 )
@@ -61,7 +60,7 @@ WATER_CONSUMPTION_VARS = [
 
 # Emission factors for irrigation equipment and application (precalculated)
 # Reference: Juárez-Hernández, S., & Pardo, C. S. (2019). Irrigation energy use and related greenhouse gas emissions of maize production in Mexico. International journal of water resources development.
-# Source: based on values in Table 7 in https://doi.org/10.1080/07900627.2018.1482739;
+# Source: based on values in Table 5 and 7 in https://doi.org/10.1080/07900627.2018.1482739;
 # average in tCO2eq per m3 of the values for summer and winter season,
 # for pressurized systems only, excluding groundwater pumping
 EF_IRR_EQUIP = 1.61319e-05
@@ -70,7 +69,7 @@ EF_IRR_APP = 0.000148952
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
-# # Load dataset on irrigation
+# # Load dataset on irrigation (legacy code, used previously to ML imputation)
 # water_df_raw = pd.read_excel(
 #     io=PATH_CIMMYT_MEXICO_WATER,
 #     sheet_name=SHEET_CIMMYT_MEXICO_WATER
@@ -80,7 +79,7 @@ EF_IRR_APP = 0.000148952
 # -----------------------------------------------------------------------------
 # Data preprocessing
 # -----------------------------------------------------------------------------
-# # Clean column names
+# # Clean column names (legacy code, used previously to ML imputation)
 # water_df_clean_columns = water_df_raw.copy()
 # water_df_clean_columns = water_df_clean_columns.clean_names(
 #     axis="columns",
@@ -92,12 +91,13 @@ EF_IRR_APP = 0.000148952
 #     enforce_string=True,
 # )
 
-# Load Random Forest dataset
+# Load water-imputation output
 water_df_metrics = pd.read_feather(
-    PATH_WATER_RANDOM_FOREST,
+    PATH_WATER_IMPUTATION,
 )
 
 # Compute reported water consumption in cubic meters per hectare
+# This column only stores reported (original )values
 water_df_metrics["water_cons_rep_m3_ha"] = np.where(
     water_df_metrics["total_water_consumption_per_year_ha"].notna(),
     water_df_metrics["total_water_consumption_per_year_ha"] * 10**-3,
@@ -105,6 +105,7 @@ water_df_metrics["water_cons_rep_m3_ha"] = np.where(
 )
 
 # Compute reported water consumption in cubic meters per hectare, adjusted for irrigation efficiency
+# Safe to remove if not used in the analysis
 water_df_metrics["water_cons_rep_adj_m3_ha"] = np.where(
     water_df_metrics["total_water_consumption_per_year_ha"].notna()
     & water_df_metrics["irr_efficiency_param"].notna(),
@@ -114,12 +115,13 @@ water_df_metrics["water_cons_rep_adj_m3_ha"] = np.where(
     np.nan,
 )
 
-# Create a new column using the ML estimates
+# Create a new column using both the ML estimates and reported values
 water_df_metrics["water_cons_hyb_ml_m3_ha"] = (
     water_df_metrics["water_hybrid_ml_lt"] * 10**-3
 )
 
 # Create a new column using the ML estimates, adjusted for irrigation efficiency
+# Safe to remove if not used in the analysis
 water_df_metrics["water_cons_hyb_ml_adj_m3_ha"] = (
     water_df_metrics["water_hybrid_ml_lt"]
     * 10**-3
@@ -128,11 +130,12 @@ water_df_metrics["water_cons_hyb_ml_adj_m3_ha"] = (
 
 water_df_totals = water_df_metrics.copy()
 
-# Compute total water consumption (reported, estimated, hybrid)
+# Compute total water consumption (reported, hybrid)
 water_df_totals["water_cons_rep_m3"] = (
     water_df_totals.water_cons_rep_m3_ha * water_df_totals.area_ha
 )
 
+# Safe to remove if not used in the analysis
 water_df_totals["water_cons_rep_adj_m3"] = (
     water_df_totals.water_cons_rep_adj_m3_ha * water_df_totals.area_ha
 )
@@ -141,6 +144,7 @@ water_df_totals["water_cons_hyb_ml_m3"] = (
     water_df_totals.water_cons_hyb_ml_m3_ha * water_df_totals.area_ha
 )
 
+# Safe to remove if not used in the analysis
 water_df_totals["water_cons_hyb_ml_adj_m3"] = (
     water_df_totals.water_cons_hyb_ml_adj_m3_ha * water_df_totals.area_ha
 )
@@ -149,60 +153,66 @@ water_df_totals["water_cons_hyb_ml_adj_m3"] = (
 water_df_totals["water_cons_hyb_ml_dam3"] = (
     water_df_totals.water_cons_hyb_ml_m3 * 10**-3
 )
+
+# Safe to remove if not used in the analysis
 water_df_totals["water_cons_hyb_ml_adj_dam3"] = (
     water_df_totals.water_cons_hyb_ml_adj_m3 * 10**-3
 )
 
-# Emissions based on non-adjusted hybrid water consumption estimates (cost method), per hectare basis
+# Create df for estimating emissions from water use
 water_df_emissions = water_df_totals.copy()
 
 # Emissions based on non-adjusted hybrid water consumption estimates (ML method), per hectare basis
-water_df_emissions["irr_app_ml_tco2eq_ha"] = np.where(
+water_df_emissions["irr_app_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_m3_ha"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_ml_tco2eq_ha"] = np.where(
+water_df_emissions["irr_equip_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_m3_ha"] * EF_IRR_EQUIP,
     np.nan,
 )
 
 # Emissions based on adjusted hybrid water consumption estimates (ML method), per hectare basis
-water_df_emissions["irr_app_ml_adj_tco2eq_ha"] = np.where(
+# Safe to remove if not used in the analysis
+water_df_emissions["irr_app_adj_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3_ha"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_ml_adj_tco2eq_ha"] = np.where(
+# Safe to remove if not used in the analysis
+water_df_emissions["irr_equip_adj_tco2eq_ha"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3_ha"] * EF_IRR_EQUIP,
     np.nan,
 )
 
 # Emissions based on non-adjusted hybrid water consumption estimates (ML method), total
-water_df_emissions["irr_app_ml_tco2eq"] = np.where(
+water_df_emissions["irr_app_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_m3"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_ml_tco2eq"] = np.where(
+water_df_emissions["irr_equip_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_m3"] * EF_IRR_EQUIP,
     np.nan,
 )
 
 # Emissions based on adjusted hybrid water consumption estimates (ML method), total
-water_df_emissions["irr_app_ml_adj_tco2eq"] = np.where(
+# Safe to remove if not used in the analysis
+water_df_emissions["irr_app_adj_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3"] * EF_IRR_APP,
     np.nan,
 )
 
-water_df_emissions["irr_equip_ml_adj_tco2eq"] = np.where(
+# Safe to remove if not used in the analysis
+water_df_emissions["irr_equip_adj_tco2eq"] = np.where(
     water_df_emissions["irrigation_types"].str.contains("DRIP|SPRINKLER"),
     water_df_emissions["water_cons_hyb_ml_adj_m3"] * EF_IRR_EQUIP,
     np.nan,
@@ -214,12 +224,12 @@ water_df_emissions["irr_equip_ml_adj_tco2eq"] = np.where(
 # Write feather file
 water_df_final = water_df_emissions.copy()
 
-water_df_final.to_feather(PATH_PROCESSED_TABLES / "table_05_water_features.feather")
+water_df_final.to_feather(PATH_PROCESSED_TABLES / "table_05_b_water_features.feather")
 
 # Write to SQL database
 with sqlite3.connect(PATH_SQL_DB) as con:
     water_df_final.to_sql(
-        name="table_05_water_features",
+        name="table_05_b_water_features",
         con=con,
         if_exists="replace",
         index=False,

@@ -1,5 +1,5 @@
 """
-Enrichment of the reference table with additional features.
+Enrichment of the reference table with additional geospatial and biophysical features.
 Main operations:
     - assign a continent to each farm based on coordinates
     - assign a vegetation type to each farm based on coordinates
@@ -9,7 +9,6 @@ Main operations:
     - export the enriched reference table as a feather file and to an SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -137,7 +136,7 @@ ref_gdf_vtypes["raster_value"] = ref_gdf_vtypes["geometry"].apply(
 )
 
 # Mapping raster values to vegetation types
-# Source: based on the metric input tab in the ESI Excel tool
+# Source: based on mapping provided by ESI development team
 raster_value_vtype_label_map = {
     1: "boreal forest",
     2: "cool climate grassland",

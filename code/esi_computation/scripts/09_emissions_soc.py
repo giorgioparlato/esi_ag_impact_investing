@@ -8,7 +8,6 @@ Main operations:
     - export results as feather file and to SQL database
 
 Authors: Dario Marone, Giorgio Parlato
-Date: 2026-02-19
 """
 
 # -----------------------------------------------------------------------------
@@ -20,7 +19,7 @@ from pathlib import Path
 import janitor
 import pandas as pd
 import numpy as np
-import rasterio 
+import rasterio
 
 from paths import (
     PATH_REF_TABLE_ENRICHED,
@@ -55,7 +54,7 @@ FLU_MAPPING = {
     "Tropical Wet": 0.83,
     "Tropical Moist": 0.83,
     "Tropical Dry": 0.92,
-    "Tropical Montane": 0.87, # value missing in table, we approximate with the average of the other tropical classes
+    "Tropical Montane": 0.87,  # value missing in table, we approximate with the average of the other tropical classes
 }
 
 # Tillage coefficients (FMG)
@@ -73,9 +72,8 @@ FTILL_MAPPING = {
         "Tropical Dry": 0.99,
         "Tropical Moist": 1.04,
         "Tropical Wet": 1.04,
-        "Tropical Montane": 1.015, # value missing in table, we approximate with the average of the other tropical classes
+        "Tropical Montane": 1.015,  # value missing in table, we approximate with the average of the other tropical classes
     },
-
     # Zero tillage = No-till
     "ZERO TILLAGE": {
         "Cool Temperate Dry": 1.03,
@@ -85,9 +83,9 @@ FTILL_MAPPING = {
         "Tropical Dry": 1.04,
         "Tropical Moist": 1.10,
         "Tropical Wet": 1.10,
-        "Tropical Montane": 1.07, # value missing in table, we approximate with the average of the other tropical classes
+        "Tropical Montane": 1.07,  # value missing in table, we approximate with the average of the other tropical classes
     },
-       # Averaging for combinations - HOWEVER if practice includes traditional, we consider the whole farm as such
+    # Averaging for combinations - HOWEVER if practice includes traditional, we consider the whole farm as such
     "MINIMUM-REDUCED TILLAGE | TRADITIONAL TILLAGE": {
         "Cool Temperate Dry": (0.98 + 1) / 2,
         "Cool Temperate Moist": (1.04 + 1) / 2,
@@ -161,23 +159,23 @@ ANIMAL_MANURE = (
     "Horses/Mules/Asses Manure",
 )
 
-## assign the IPCC default reference SOC stock (SOCref) by climate x soil class 
+## assign the IPCC default reference SOC stock (SOCref) by climate x soil class
 ## Legend of the IPCC soil-types raster (codes -> categories);
 SOIL_CODE_MAP = {
-    0: None,    # masked (oceans)
-    1: "GG",    # glaciers / land ice
-    2: "HAC",   # High activity clay
-    3: "LAC",   # Low activity clay
-    4: "ND",    # no data
-    5: "ORG",   # organic soils -> method N/A
-    6: "POD",   # spodic
-    7: "RK",    # rock outcrops
-    8: "SAN",   # sandy
-    9: "ST",    # salt flats
+    0: None,  # masked (oceans)
+    1: "GG",  # glaciers / land ice
+    2: "HAC",  # High activity clay
+    3: "LAC",  # Low activity clay
+    4: "ND",  # no data
+    5: "ORG",  # organic soils -> method N/A
+    6: "POD",  # spodic
+    7: "RK",  # rock outcrops
+    8: "SAN",  # sandy
+    9: "ST",  # salt flats
     10: "VOL",  # volcanic
     11: "WET",  # wetland
-    12: "WR",   # water
-    13: "IS",   # islands
+    12: "WR",  # water
+    13: "IS",  # islands
 }
 
 # Mineral soil categories that have an IPCC Table 2.3 reference SOC stock
@@ -187,46 +185,59 @@ SOCREF_SOILS = {"HAC", "LAC", "SAN", "POD", "VOL", "WET"}
 # (tonnes C ha^-1, 0-30 cm). Keyed on (original climate class, soil category). Missing combos are
 # simply absent -> lookup returns NaN (never silently contributes a zero).
 SOCREF_IPCC = {
-    ("Warm Temperate Dry", "HAC"): 24, ("Warm Temperate Dry", "LAC"): 19,
-    ("Warm Temperate Dry", "SAN"): 10, ("Warm Temperate Dry", "VOL"): 84,
+    ("Warm Temperate Dry", "HAC"): 24,
+    ("Warm Temperate Dry", "LAC"): 19,
+    ("Warm Temperate Dry", "SAN"): 10,
+    ("Warm Temperate Dry", "VOL"): 84,
     ("Warm Temperate Dry", "WET"): 74,
     # POD = NO for Warm Temperate Dry -> omitted
- 
-    ("Warm Temperate Moist", "HAC"): 64, ("Warm Temperate Moist", "LAC"): 55,
-    ("Warm Temperate Moist", "SAN"): 36, ("Warm Temperate Moist", "POD"): 143,
-    ("Warm Temperate Moist", "VOL"): 138, ("Warm Temperate Moist", "WET"): 135,
- 
-    ("Cool Temperate Dry", "HAC"): 43, ("Cool Temperate Dry", "LAC"): 33,
-    ("Cool Temperate Dry", "SAN"): 13, ("Cool Temperate Dry", "VOL"): 20,
+    ("Warm Temperate Moist", "HAC"): 64,
+    ("Warm Temperate Moist", "LAC"): 55,
+    ("Warm Temperate Moist", "SAN"): 36,
+    ("Warm Temperate Moist", "POD"): 143,
+    ("Warm Temperate Moist", "VOL"): 138,
+    ("Warm Temperate Moist", "WET"): 135,
+    ("Cool Temperate Dry", "HAC"): 43,
+    ("Cool Temperate Dry", "LAC"): 33,
+    ("Cool Temperate Dry", "SAN"): 13,
+    ("Cool Temperate Dry", "VOL"): 20,
     ("Cool Temperate Dry", "WET"): 87,
     # POD = NO for Cool Temperate Dry -> omitted
- 
-    ("Cool Temperate Moist", "HAC"): 81, ("Cool Temperate Moist", "LAC"): 76,
-    ("Cool Temperate Moist", "SAN"): 51, ("Cool Temperate Moist", "POD"): 128,
-    ("Cool Temperate Moist", "VOL"): 136, ("Cool Temperate Moist", "WET"): 128,
- 
-    ("Tropical Dry", "HAC"): 21, ("Tropical Dry", "LAC"): 19,
-    ("Tropical Dry", "SAN"): 9, ("Tropical Dry", "VOL"): 50,
+    ("Cool Temperate Moist", "HAC"): 81,
+    ("Cool Temperate Moist", "LAC"): 76,
+    ("Cool Temperate Moist", "SAN"): 51,
+    ("Cool Temperate Moist", "POD"): 128,
+    ("Cool Temperate Moist", "VOL"): 136,
+    ("Cool Temperate Moist", "WET"): 128,
+    ("Tropical Dry", "HAC"): 21,
+    ("Tropical Dry", "LAC"): 19,
+    ("Tropical Dry", "SAN"): 9,
+    ("Tropical Dry", "VOL"): 50,
     ("Tropical Dry", "WET"): 22,
     # POD = NA for Tropical Dry -> omitted
- 
-    ("Tropical Moist", "HAC"): 40, ("Tropical Moist", "LAC"): 38,
-    ("Tropical Moist", "SAN"): 27, ("Tropical Moist", "VOL"): 70,
+    ("Tropical Moist", "HAC"): 40,
+    ("Tropical Moist", "LAC"): 38,
+    ("Tropical Moist", "SAN"): 27,
+    ("Tropical Moist", "VOL"): 70,
     ("Tropical Moist", "WET"): 68,
     # POD = NA for Tropical Moist -> omitted
- 
-    ("Tropical Wet", "HAC"): 60, ("Tropical Wet", "LAC"): 52,
-    ("Tropical Wet", "SAN"): 46, ("Tropical Wet", "VOL"): 77,
+    ("Tropical Wet", "HAC"): 60,
+    ("Tropical Wet", "LAC"): 52,
+    ("Tropical Wet", "SAN"): 46,
+    ("Tropical Wet", "VOL"): 77,
     ("Tropical Wet", "WET"): 49,
     # POD = NA for Tropical Wet -> omitted
- 
-    ("Tropical Montane", "HAC"): 51, ("Tropical Montane", "LAC"): 44,
-    ("Tropical Montane", "SAN"): 52, ("Tropical Montane", "VOL"): 96,
+    ("Tropical Montane", "HAC"): 51,
+    ("Tropical Montane", "LAC"): 44,
+    ("Tropical Montane", "SAN"): 52,
+    ("Tropical Montane", "VOL"): 96,
     ("Tropical Montane", "WET"): 82,
     # POD = NA for Tropical Montane -> omitted
- 
-    ("Boreal", "HAC"): 63, ("Boreal", "SAN"): 10, ("Boreal", "POD"): 117,
-    ("Boreal", "VOL"): 20, ("Boreal", "WET"): 116,
+    ("Boreal", "HAC"): 63,
+    ("Boreal", "SAN"): 10,
+    ("Boreal", "POD"): 117,
+    ("Boreal", "VOL"): 20,
+    ("Boreal", "WET"): 116,
     # LAC = NA for Boreal -> omitted
 }
 # -----------------------------------------------------------------------------
@@ -248,15 +259,17 @@ soc_df_ref = pd.read_feather(
         "logbook_id",
         "veg_type",
         "practice_id",
-        "latitude_n",  
-        "longitude_w", 
+        "latitude_n",
+        "longitude_w",
         "climate_class",
         "soc_ref",
     ],
 )
 
 # sample the IPCC soil-types raster at each farm and assign the IPCC default reference SOC  stock (climate x soil, Table 2.3)
-_coords = list(zip(soc_df_ref["longitude_w"].astype(float), soc_df_ref["latitude_n"].astype(float)))
+_coords = list(
+    zip(soc_df_ref["longitude_w"].astype(float), soc_df_ref["latitude_n"].astype(float))
+)
 with rasterio.open(PATH_SOIL_CLASS_IPCC) as _src:
     soc_df_ref["soil_code_ipcc"] = [v[0] for v in _src.sample(_coords)]
 soc_df_ref["soil_category_ipcc"] = soc_df_ref["soil_code_ipcc"].map(SOIL_CODE_MAP)
@@ -272,6 +285,7 @@ def lookup_socref_ipcc(row):
 
 
 soc_df_ref["soc_ref_ipcc"] = soc_df_ref.apply(lookup_socref_ipcc, axis=1).astype(float)
+
 # Keep GSOCseq value for reference; use the IPCC value as the SOCref
 soc_df_ref = soc_df_ref.rename(columns={"soc_ref": "soc_ref_gsocseq"})
 soc_df_ref["soc_ref"] = soc_df_ref["soc_ref_ipcc"]
@@ -293,8 +307,10 @@ soc_ag_inputs_df = pd.read_feather(
         "practice_id",
         "categories_organic",
         "nitrogen_org_t_ha",
-        "synth_input_app_t_co2eq_ha", # proxy ofsynthetic nitrogen applications
-        "product_categories",  
+        "synth_input_app_tco2eq_ha",  # proxy of synthetic nitrogen applications
+        "product_categories",
+        "flag_missing_emissions_syn_app",
+        "flag_missing_emissions_org_app",
     ],
 )
 
@@ -309,6 +325,7 @@ soc_crop_res_df = pd.read_feather(
         "residues_returned_perc_harvest",
         "maize_residues_returned_dm_t_ha",
         "maize_residues_surface_cover_dm_t_ha",
+        "flag_residue_emissions",
     ],
 )
 
@@ -384,18 +401,29 @@ soc_df_merged = soc_df_merged.merge(soc_ag_inputs_df, on=labels, how="left")
 soc_df_merged = soc_df_merged.merge(soc_tillage_df_agg, on=labels, how="left")
 
 
+def append_reason(reasons: pd.Series, mask: pd.Series, label: str) -> None:
+    """Append a reason label to selected rows of a pipe-delimited status."""
+    current = reasons.loc[mask]
+    reasons.loc[mask] = np.where(
+        current.eq(""),
+        label,
+        current + " | " + label,
+    )
+
+
 # --- FI classification, IPCC 2019 Vol 4 Ch 5 Table 5.5 -------------------------------
 # --- thresholds ----------------------------------------------------------------------
 # We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology works with thresholds.
-RESIDUE_RETURNED_PCT = 60 # if farms return >60% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
+RESIDUE_RETURNED_PCT = 60  # if farms return >60% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
 MIN_RESIDUE_DM_T_HA = 3  # Figure 6 shows SOC benefits growing linearly, with important gains already around 3-4 (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
 HIGH_RESIDUE_DM_T_HA = 7  # Figure 6 shows SOC benefits saturating around 8t, we set 7 as threshold for "high" residue mass (t/ha dry matter) https://doi.org/10.1007/s13593-017-0432-z
+
 
 def classify_fi_level(row):
     """Classify FI level per IPCC 2019 Vol 4 Ch 5 Table 5.5."""
     residues = row.get("residues_returned_perc_harvest", 0)
     n_org_input = row.get("nitrogen_org_t_ha", 0)
-    n_synth_input = row.get("synth_input_app_t_co2eq_ha", 0)
+    n_synth_input = row.get("synth_input_app_tco2eq_ha", 0)
     category = row.get("categories_organic", "")
     residue_mass = row.get("maize_residues_returned_dm_t_ha", 0)
 
@@ -405,27 +433,29 @@ def classify_fi_level(row):
     category = "" if pd.isna(category) else category
     residue_mass = 0 if pd.isna(residue_mass) else residue_mass
 
-    returned = (residues >= RESIDUE_RETURNED_PCT or residue_mass >= MIN_RESIDUE_DM_T_HA)
+    returned = residues >= RESIDUE_RETURNED_PCT or residue_mass >= MIN_RESIDUE_DM_T_HA
     has_organic = n_org_input > 0
     animal_manure = has_organic and any(t in category for t in ANIMAL_MANURE)
     nonmanure_organic = has_organic and not animal_manure
     min_residue = residue_mass >= MIN_RESIDUE_DM_T_HA
-    high_residue = residue_mass >= HIGH_RESIDUE_DM_T_HA # High residue threshold introduced to handle note 4 in IPCC Figure 5.1 where high residues can be considered as a practice increasing C input (see curve in Figure 6c in Ranaivoson et al. 2017 https://doi.org/10.1007/s13593-017-0432-z)
-  
+    high_residue = (
+        residue_mass >= HIGH_RESIDUE_DM_T_HA
+    )  # High residue threshold introduced to handle note 4 in IPCC Figure 5.1 where high residues can be considered as a practice increasing C input (see curve in Figure 6c in Ranaivoson et al. 2017 https://doi.org/10.1007/s13593-017-0432-z)
+
     mineral_fert = n_synth_input > 0
 
     # Following IPCC 2019 Vol 4, Fig 5.1 and Table 5.5, as well as Cool Farm Tool decision tree for assigning FI
-    # Node 2: residues removed or burned? 
+    # Node 2: residues removed or burned?
     if not returned:
         # Node 3: organic amendment?
         return "Medium" if (has_organic) else "Low"
-    
-    # # residues returned 
+
+    # # residues returned
     # # Node 4: N-fertilisation?
     if not (mineral_fert or min_residue):
-        return "Low"                   
+        return "Low"
 
-    # Node 5: manure or poultry litter added? 
+    # Node 5: manure or poultry litter added?
     if animal_manure:
         return "High_with_manure"
 
@@ -434,7 +464,70 @@ def classify_fi_level(row):
         return "High_no_manure"
     return "Medium"
 
+
 soc_df_mapping = soc_df_merged.copy()
+
+# Record accepted defaults separately from calculation completeness.
+soc_assumptions = pd.Series("", index=soc_df_mapping.index, dtype="string")
+
+missing_tillage = soc_df_mapping["tillage"].isna()
+append_reason(
+    soc_assumptions,
+    missing_tillage,
+    "TILLAGE ASSUMED TRADITIONAL",
+)
+
+residue_not_applicable = soc_df_mapping["flag_residue_emissions"].eq(
+    "NOT APPLICABLE"
+)
+missing_residue_input = (
+    soc_df_mapping[
+        ["residues_returned_perc_harvest", "maize_residues_returned_dm_t_ha"]
+    ]
+    .isna()
+    .any(axis=1)
+    & ~residue_not_applicable
+)
+append_reason(
+    soc_assumptions,
+    missing_residue_input,
+    "MISSING RESIDUE INPUT TREATED AS ZERO",
+)
+
+organic_not_applicable = soc_df_mapping["flag_missing_emissions_org_app"].eq(
+    "NOT APPLICABLE"
+)
+missing_organic_input = (
+    soc_df_mapping["nitrogen_org_t_ha"].isna() & ~organic_not_applicable
+)
+append_reason(
+    soc_assumptions,
+    missing_organic_input,
+    "MISSING ORGANIC INPUT TREATED AS ZERO",
+)
+
+synthetic_not_applicable = soc_df_mapping["flag_missing_emissions_syn_app"].eq(
+    "NOT APPLICABLE"
+)
+missing_synthetic_input = (
+    soc_df_mapping["synth_input_app_tco2eq_ha"].isna()
+    & ~synthetic_not_applicable
+)
+append_reason(
+    soc_assumptions,
+    missing_synthetic_input,
+    "MISSING SYNTHETIC INPUT TREATED AS ZERO",
+)
+
+missing_organic_category = (
+    soc_df_mapping["nitrogen_org_t_ha"].fillna(0).gt(0)
+    & soc_df_mapping["categories_organic"].isna()
+)
+append_reason(
+    soc_assumptions,
+    missing_organic_category,
+    "MISSING ORGANIC CATEGORY ASSUMED NON-MANURE",
+)
 
 soc_df_mapping["fi_level"] = soc_df_mapping.apply(classify_fi_level, axis=1)
 
@@ -478,6 +571,25 @@ def map_ftill(row):
 # Apply the mapping
 soc_df_mapping["ftill"] = soc_df_mapping.apply(map_ftill, axis=1)
 
+traditional_tillage = soc_df_mapping["tillage"].str.contains(
+    "TRADITIONAL TILLAGE", na=False
+)
+mapped_tillage_factor = soc_df_mapping.apply(
+    lambda row: row["tillage"] in FTILL_MAPPING
+    and row["climate_class"] in FTILL_MAPPING[row["tillage"]],
+    axis=1,
+)
+defaulted_tillage_factor = ~traditional_tillage & ~mapped_tillage_factor
+append_reason(
+    soc_assumptions,
+    defaulted_tillage_factor,
+    "TILLAGE FACTOR DEFAULTED TO 1",
+)
+
+soc_df_mapping["flag_soc_assumptions"] = soc_assumptions.mask(
+    soc_assumptions.eq(""), "NO ASSUMPTIONS"
+)
+
 # SOC estimation
 soc_df_estimation = soc_df_mapping.copy()
 
@@ -506,12 +618,54 @@ soc_df_estimation["soc_delta"] = (
 
 # Conversion to (negative) carbon dioxide equivalents, to reflect carbon sequestration
 # Source: https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator#:~:text=To%20convert%20a%20quantity%20of,carbon%20dioxide%2C%20multiply%20by%203.67.
-soc_df_estimation["soc_delta_t_co2eq"] = soc_df_estimation["soc_delta"] * 3.67 * -1
+soc_df_estimation["soc_delta_tco2eq"] = soc_df_estimation["soc_delta"] * 3.67 * -1
 
 # Calculate on a per hectare basis
-soc_df_estimation["soc_delta_t_co2eq_ha"] = (
+soc_df_estimation["soc_delta_tco2eq_ha"] = (
     soc_df_estimation["soc_delta"] * 3.67 * -1 / soc_df_estimation["area_ha"]
 )
+
+# Explain why an SOC estimate is unavailable. Accepted defaults remain available
+# and are documented separately in flag_soc_assumptions.
+soc_missing_reasons = pd.Series(
+    "", index=soc_df_estimation.index, dtype="string"
+)
+climate_issue = ~soc_df_estimation["climate_class"].isin(FLU_MAPPING)
+soc_completeness_masks = [
+    (climate_issue, "MISSING OR UNSUPPORTED CLIMATE CLASS"),
+    (soc_df_estimation["soc_ref"].isna(), "MISSING REFERENCE SOC"),
+    (
+        soc_df_estimation["area_ha"].isna() | soc_df_estimation["area_ha"].le(0),
+        "MISSING OR INVALID AREA",
+    ),
+    (soc_df_estimation["flu"].isna(), "MISSING LAND-USE FACTOR"),
+    (
+        soc_df_estimation[["fi", "fi_bau"]].isna().any(axis=1),
+        "MISSING SOC INPUT FACTOR",
+    ),
+    (soc_df_estimation["ftill"].isna(), "MISSING TILLAGE FACTOR"),
+]
+
+for reason_mask, reason_label in soc_completeness_masks:
+    append_reason(soc_missing_reasons, reason_mask, reason_label)
+
+unexplained_missing_soc = (
+    soc_df_estimation["soc_delta_tco2eq"].isna()
+    & soc_missing_reasons.eq("")
+)
+append_reason(
+    soc_missing_reasons,
+    unexplained_missing_soc,
+    "ESTIMATE MISSING DESPITE COMPLETE INPUTS",
+)
+
+soc_emissions_status = pd.Series(
+    "AVAILABLE", index=soc_df_estimation.index, dtype="string"
+)
+soc_emissions_status.loc[soc_missing_reasons.ne("")] = soc_missing_reasons.loc[
+    soc_missing_reasons.ne("")
+]
+soc_df_estimation["flag_soc_emissions"] = soc_emissions_status
 
 # Extra tillage variable for conservation agriculture dummy, if includes traditional tillage, it is not considered conservation agriculture
 soc_df_estimation["tillage_ca_dummy"] = np.where(
@@ -541,6 +695,8 @@ new_index = [
     "logbook_id",
     "practice_id",
     "year",
+    "flag_soc_assumptions",
+    "flag_soc_emissions",
     "area_ha",
     "climate_class",
     "soil_code_ipcc",
@@ -562,9 +718,9 @@ new_index = [
     "soc_0",
     "soc_1",
     "soc_delta",
-    "soc_delta_t_co2eq_ha",
-    "soc_delta_t_co2eq",
-    "synth_input_app_t_co2eq_ha",
+    "soc_delta_tco2eq_ha",
+    "soc_delta_tco2eq",
+    "synth_input_app_tco2eq_ha",
 ]
 
 soc_df_final = soc_df_final.reindex(columns=new_index)
