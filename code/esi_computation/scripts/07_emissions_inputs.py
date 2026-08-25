@@ -31,6 +31,7 @@ from paths import (
     SHEET_CIMMYT_SYNTHETIC_INPUTS,
     SHEET_CIMMYT_ORGANIC_INPUTS,
     PATH_AGRONOMIC_FEATURES,
+    PATH_REFERENCE_TABLE,
     PATH_PROCESSED_TABLES,
     PATH_SQL_DB,
 )
@@ -84,6 +85,16 @@ org_inputs_df_raw = pd.read_excel(
 
 # Load plot areas
 areas_df = pd.read_feather(PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"])
+
+# Load identifiers for organic-only practices from the reference table.
+reference_df = pd.read_feather(
+	PATH_REFERENCE_TABLE,
+	columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"],
+)
+reference_df["practice_id"] = reference_df["practice_id"].astype("string")
+reference_lookup = reference_df[
+	["practice_id", "farmer_id", "plot_id", "logbook_id", "year"]
+].copy()
 
 # -----------------------------------------------------------------------------
 # Data preprocessing
@@ -172,6 +183,20 @@ inputs_df_merge = pd.merge(
 
 cols_to_fill = ["farmer_id", "plot_id", "year"]
 
+inputs_df_merge = inputs_df_merge.merge(
+	reference_lookup.drop(columns="logbook_id"),
+	on="practice_id",
+	how="left",
+	validate="many_to_one",
+	suffixes=("", "_reference"),
+)
+
+for col in cols_to_fill:
+    inputs_df_merge[col] = inputs_df_merge[col].combine_first(
+        inputs_df_merge[f"{col}_reference"]
+    )
+    inputs_df_merge.drop(columns=f"{col}_reference", inplace=True)
+
 for col in cols_to_fill:
     inputs_df_merge[col] = inputs_df_merge.groupby("logbook_id")[col].ffill()
     inputs_df_merge[col] = inputs_df_merge.groupby("logbook_id")[col].bfill()
@@ -258,17 +283,13 @@ INOCULANT_NAMES = {
     name for name, sub in BIOFERT_SUBTYPE_MAP.items() if sub == "inoculant"
 }
 
-inputs_df_imp_product.loc[
-    inputs_df_imp_product["product_name_applied"].isin(INOCULANT_NAMES),
-    "kind_of_product_imp",
-] = "BIOLOGICO/ETOLOGICO/ORGANICO"
 
 # Biofert nitrogen content mg/L for liquid biofertilizers, to be applied to convert amounts to kg N for emissions estimation
 # Source BIOL: Gil Ramírez, Luis Arturo, Frans Allinson Leiva Cabrera, Martha Karina Lezama Escobedo, Cecilia Betzabet Bardales Vásquez, and Carlos Alberto León Torres. “Biofertilizante ‘biol’: caracterización física, química y microbiológica.” Revista Alfa 7, no. 20 (2023): 336–45. https://doi.org/10.33996/revistaalfa.v7i20.219.
 # Source LIXIVIADO DE LOMBRIZ: Valenzuela, Alma, Alfredo Granados-Olivas, Marisela Soto Padilla, and Edith Flores Tavizón. “Composición Mineral de Lixiviados (Biofertilizante) de Lombriz Roja Californiana: Mineral Composition of Leachate (Biofertilizer) of Californian Red Worm.” TECNOCIENCIA Chihuahua 14 (August 2021): 751. https://doi.org/10.54167/tch.v14i3.751.
 LIQUID_BIOFERT_N_MG_L = {
     "BIOL": 290,
-    "LIXIVIADO DE LOMBRIZ": 839,  # average of different values on table 4
+    "LIXIVIADO DE LOMBRIZ": 839,  # average of values on table 4
 }
 
 # Fill by product name
@@ -277,6 +298,11 @@ inputs_df_imp_product.loc[
     & inputs_df_imp_product["product_name_applied"].isin(most_common_kinds.index),
     "kind_of_product_imp",
 ] = inputs_df_imp_product["product_name_applied"].map(most_common_kinds)
+
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["product_name_applied"].isin(INOCULANT_NAMES),
+    "kind_of_product_imp",
+] = "BIOLOGICO/ETOLOGICO/ORGANICO"
 
 # Fill remaining by category
 inputs_df_imp_product.loc[
@@ -829,10 +855,10 @@ manure_mapping = {
     # "ESTIERCOL DE MURCIÉLAGO": "General Compost",
     # "ESTIERCOL DE HORMIGA ARRIERA": "General Compost",
     # "EXCRETA DE HORMIGA ARRIERA": "General Compost",
-    "HUMUS DE LOMBRIZ LÍQUIDO": "General Compost",
+    "HUMUS DE LOMBRIZ LIQUIDO": "General Compost",
     "LIXIVIADO DE LOMBRIZ": "General Compost",
     "LIXIVIADO DE HUMUS DE LOMBRIZ": "General Compost",
-    "HUMUS SÓLIDO DE LOMBRIZ": "General Compost",
+    "HUMUS SOLIDO DE LOMBRIZ": "General Compost",
     "LIXIVIADO DE LOMBRIZ ROJA CALIFORNIANA": "General Compost",
     "COMPOSTA": "General Compost",
     "LOMBRICOMPOSTA": "General Compost",
@@ -847,7 +873,9 @@ manure_mapping = {
     "COMPOSTA A BASE DE ESTIERCOL DE CERDO": "General Compost",
     "COMPOSTA DE VARIOS ESTIERCOLES": "General Compost",
     "COMPOSTA CON ABONO DE BOVINO": "General Compost",
-    "BOCASHI (ABONO ORGÁNICO FERMENTADO)": "General Compost",
+    "VERMICOMPOSTA": "General Compost",
+    "TE DE LOMBRICOMPOSTA": "General Compost",
+    "BOCASHI (ABONO ORGANICO FERMENTADO)": "General Compost",
     "SUPERMAGRO": "General Compost",
     "ABONO FOLIAR FERMENTADO": "General Compost",
 }
