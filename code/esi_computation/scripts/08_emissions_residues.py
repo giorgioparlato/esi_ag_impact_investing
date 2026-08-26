@@ -455,8 +455,8 @@ residues_df_emissions["maize_residues_dm_t_ha"] = residues_df_emissions[
 ].sum(axis=1, skipna=True, min_count=1)
 
 # Harvest management moves above-ground residue only: roots stay in the soil whatever
-# the farmer does with the stover. This matches the N accounting below, where
-# (1 - total_loss) scales grain_ag_n_kg_ha but not the below-ground terms.
+# the farmer does with the stover. This matches the N accounting below, where the
+# returned fraction scales grain_ag_n_kg_ha but not the below-ground terms.
 residues_df_emissions["maize_ag_residue_dm_t_ha"] = residues_df_emissions[
     ["maize_grain_ag_residue_dm_t_ha", "maize_forage_ag_residue_dm_t_ha"]
 ].sum(axis=1, skipna=True, min_count=1)
@@ -485,23 +485,24 @@ residues_df_emissions["maize_residues_surface_cover_dm_t_ha"] = (
     / 100
 )
 
-# Compute the crop residue N content
-# Calculate total_loss: percentage of residues lost due to burning and removal
-# Burned residues lose (100% - combustion_factor)%, plus all removed residues are lost
-# The complement represents residues that return to the soil
-residues_df_emissions["total_loss"] = (
-    1
-    - residues_df_emissions["residues_returned_perc_harvest"].fillna(0) / 100
-    + residues_df_emissions["burned_perc_harvest"].fillna(0)
-    / 100
-    * (1 - COMBUSTION_FACTOR_MAIZE)
+# Compute the crop residue N content. Reported returned residues remain in the
+# field, as does the fraction of burned residues not consumed by combustion.
+returned_fraction = (
+    residues_df_emissions["residues_returned_perc_harvest"].fillna(0) / 100
+)
+burned_fraction = (
+    residues_df_emissions["burned_perc_harvest"].fillna(0) / 100
+)
+above_ground_residue_fraction_returned = (
+    returned_fraction
+    + burned_fraction * (1 - COMBUSTION_FACTOR_MAIZE)
 ).clip(0, 1)
 
 grain_ag_n_kg_ha = (
     residues_df_emissions["maize_grain_ag_residue_dm_t_ha"]
     * 1000
     * N_CONTENT_ABOVE_GROUND
-    * (1 - residues_df_emissions["total_loss"])
+    * above_ground_residue_fraction_returned
 )
 
 grain_bg_n_kg_ha = (
