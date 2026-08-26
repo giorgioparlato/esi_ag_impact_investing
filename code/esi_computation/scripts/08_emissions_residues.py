@@ -281,6 +281,10 @@ for idx, row in exceeding_rows.iterrows():
         row["surface_cover_perc_harvest"] / total
     )  # Proportion of surface cover in the total
     residues_df_pct.at[idx, "surface_cover_perc_harvest"] = ratio_cover * 100
+    if pd.notna(row["burned_perc_harvest"]):
+        residues_df_pct.at[idx, "burned_perc_harvest"] = (
+            row["burned_perc_harvest"] / total * 100
+        )
 
 # Define cases for flag
 # case_normal: actual sums used (any percentage available AND sum >= 80%)
