@@ -681,7 +681,6 @@ new_index = [
     "residues_returned_perc_harvest",
     "flag_total_pct",
     "flag_residue_emissions",
-    "flag_residue_assumptions",
     "flag_burned_pct",
     "area_ha",
     "maize_grain_yield_t_ha",
