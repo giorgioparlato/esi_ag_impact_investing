@@ -88,12 +88,12 @@ areas_df = pd.read_feather(PATH_AGRONOMIC_FEATURES, columns=["practice_id", "are
 
 # Load identifiers for organic-only practices from the reference table.
 reference_df = pd.read_feather(
-	PATH_REFERENCE_TABLE,
-	columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"],
+    PATH_REFERENCE_TABLE,
+    columns=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"],
 )
 reference_df["practice_id"] = reference_df["practice_id"].astype("string")
 reference_lookup = reference_df[
-	["practice_id", "farmer_id", "plot_id", "logbook_id", "year"]
+    ["practice_id", "farmer_id", "plot_id", "logbook_id", "year"]
 ].copy()
 
 # -----------------------------------------------------------------------------
@@ -181,23 +181,24 @@ inputs_df_merge = pd.merge(
     syn_inputs_df_merge, org_inputs_df_merge, how="outer", on=merge_keys
 )
 
-cols_to_fill = ["farmer_id", "plot_id", "year"]
+identifier_cols = ["farmer_id", "plot_id", "logbook_id", "year"]
 
 inputs_df_merge = inputs_df_merge.merge(
-	reference_lookup.drop(columns="logbook_id"),
-	on="practice_id",
-	how="left",
-	validate="many_to_one",
-	suffixes=("", "_reference"),
+    reference_lookup,
+    on="practice_id",
+    how="left",
+    validate="many_to_one",
+    suffixes=("", "_reference"),
 )
 
-for col in cols_to_fill:
-    inputs_df_merge[col] = inputs_df_merge[col].combine_first(
-        inputs_df_merge[f"{col}_reference"]
+for col in identifier_cols:
+    # The cleaned reference panel is authoritative for practice-level identifiers.
+    inputs_df_merge[col] = inputs_df_merge[f"{col}_reference"].combine_first(
+        inputs_df_merge[col]
     )
     inputs_df_merge.drop(columns=f"{col}_reference", inplace=True)
 
-for col in cols_to_fill:
+for col in identifier_cols:
     inputs_df_merge[col] = inputs_df_merge.groupby("logbook_id")[col].ffill()
     inputs_df_merge[col] = inputs_df_merge.groupby("logbook_id")[col].bfill()
 
@@ -1498,6 +1499,16 @@ new_index = [
 ]
 
 inputs_df_final = inputs_df_final.reindex(columns=new_index)
+
+duplicate_practices = inputs_df_final["practice_id"].duplicated(keep=False)
+if duplicate_practices.any():
+    duplicate_count = inputs_df_final.loc[
+        duplicate_practices, "practice_id"
+    ].nunique()
+    raise ValueError(
+        "Agricultural-input output must contain one row per practice_id; "
+        f"found {duplicate_count} duplicated practice IDs."
+    )
 
 # -----------------------------------------------------------------------------
 # Export data
