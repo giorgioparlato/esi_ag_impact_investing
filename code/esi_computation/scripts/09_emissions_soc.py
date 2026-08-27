@@ -384,7 +384,8 @@ soc_tillage_df.drop(columns=["tillage_bem", "tillage_land"], inplace=True)
 
 # Aggregate at the practices id level
 def join_unique(x):
-    return " | ".join(sorted(x.dropna().unique()))
+    values = sorted(x.dropna().unique())
+    return " | ".join(values) if values else pd.NA
 
 
 soc_tillage_df_agg = soc_tillage_df.copy()
