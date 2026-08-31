@@ -727,7 +727,7 @@ mask_urea = (
 
 # Source: compiled from equation 20 in reference
 # Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
-inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] = 0.73
+inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] = (0.73 + 4.29*0.46)  # 0.73 kg CO2eq/kg UREA + 4.29 kg CO2eq/kg N * 46% N content in UREA
 
 # Other synthetic FERTILIZER / INSECTICIDE / FUNGICIDE / HERBICIDE with N > 0, KG_HA, not UREA
 mask_n_inputs = (
