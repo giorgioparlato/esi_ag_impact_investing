@@ -118,14 +118,26 @@ def build_score_flag(
 df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 
 # Water ESI scores
+# A RAINFED plot is only zero-scored when it reports no water source at all,
+# i.e. it does not appear in the irrigation dataset behind
+# table_05_b_water_features. RAINFED plots that do report a water source and
+# irrigation events are scored like any other plot.
+no_water_source = df_scores.water_sources.isna()
+
+rainfed_zero_rows = df_scores.hydric_regime.eq("RAINFED") & no_water_source
+
+# Wastewater is reused water, so it scores zero under any hydric regime
+wastewater_rows = df_scores.water_sources.eq(
+    "WASTEWATER (E.G. INDUSTRIAL AND/OR DOMESTIC USE)"
+)
+
 valid_water_source = ~df_scores.water_sources.str.contains(
     "SUBTERRANEAN", case=False, na=False
 )
 
 water_conditions = [
-    df_scores.hydric_regime.eq("RAINFED"),
-    df_scores.hydric_regime.eq("IRRIGATION")
-    & df_scores.water_sources.eq("WASTEWATER (E.G. INDUSTRIAL AND/OR DOMESTIC USE)"),
+    rainfed_zero_rows,
+    wastewater_rows,
     valid_water_source
     & df_scores.water_cons_hyb_ml_dam3.notna()
     & df_scores.ro_metric_scaled.notna(),
@@ -193,11 +205,11 @@ df_scores["flag_esi_land"] = build_score_flag(
     ],
 )
 
-rainfed_rows = df_scores.hydric_regime.eq("RAINFED")
+rainfed_scored_rows = df_scores.hydric_regime.eq("RAINFED") & ~no_water_source
 wastewater_rows = df_scores.hydric_regime.eq("IRRIGATION") & df_scores.water_sources.eq(
     "WASTEWATER (E.G. INDUSTRIAL AND/OR DOMESTIC USE)"
 )
-calculated_water_rows = maize_rows & ~rainfed_rows & ~wastewater_rows
+calculated_water_rows = maize_rows & ~rainfed_zero_rows & ~wastewater_rows
 subterranean_rows = df_scores.water_sources.str.contains(
     "SUBTERRANEAN", case=False, na=False
 )
@@ -236,7 +248,7 @@ df_scores["flag_esi_water"] = build_score_flag(
         ),
     ],
     available_notes=[
-        ("RAINFED ZERO", maize_rows & rainfed_rows),
+        ("RAINFED ZERO", maize_rows & rainfed_zero_rows),
         ("WASTEWATER ZERO", maize_rows & wastewater_rows),
         ("HYDRIC REGIME MISSING", missing_hydric_regime),
         (
