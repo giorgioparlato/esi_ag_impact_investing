@@ -269,6 +269,11 @@ most_common_categories = (
 # Create column for imputation
 inputs_df_imp_product["kind_of_product_imp"] = inputs_df_imp_product["kind_of_product"]
 
+CATEGORY_KIND_FALLBACK = {
+    "FOLIAR FERTILIZER": "QUIMICO",
+    "BIOFERTILIZER": "BIOLOGICO/ETOLOGICO/ORGANICO",
+}
+
 # Introduce mapping for some of most common biofertilizers we can include
 BIOFERT_SUBTYPE_MAP = {
     # Mycorrhizal inoculants (AMF) and AZOSPIRILLUM  — no direct N inputs (Lazcano et al. 2014)
@@ -311,6 +316,13 @@ inputs_df_imp_product.loc[
     & inputs_df_imp_product["product_category"].isin(most_common_categories.index),
     "kind_of_product_imp",
 ] = inputs_df_imp_product["product_category"].map(most_common_categories)
+
+# Fill remaining by category-kind fallback
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["kind_of_product_imp"].isna()
+    & inputs_df_imp_product["product_category"].isin(CATEGORY_KIND_FALLBACK.keys()),
+    "kind_of_product_imp",
+] = inputs_df_imp_product["product_category"].map(CATEGORY_KIND_FALLBACK)
 
 inputs_df_imp_product.loc[
     inputs_df_imp_product["product_name_applied"].isin(LIQUID_BIOFERT_N_MG_L),
