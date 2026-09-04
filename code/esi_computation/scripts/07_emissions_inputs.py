@@ -1307,16 +1307,15 @@ def imputation_status_if_applicable(
 inputs_df_aggregation = inputs_df_imp_flags.copy()
 
 # Prep to output total amounts of inputs in kg/ha
-is_synth_fert = (
-    inputs_df_aggregation["kind_of_product_imp"] == "QUIMICO"
-) & inputs_df_aggregation["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER"])
-inputs_df_aggregation["synth_fert_amount_kg_ha"] = np.where(
-    is_synth_fert, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
-)
-
+NON_SYNTHETIC_KINDS = ["BIOLOGICO/ETOLOGICO/ORGANICO", "BIOFERTILIZANTE", "OTRO"]
+is_synth_fert = ~kind_of_product_imp.isin(NON_SYNTHETIC_KINDS) & product_category.isin(["FERTILIZER", "FOLIAR FERTILIZER"])
+is_synth_fert_kg = is_synth_fert & units_ha.eq("KG_HA")
+                 
 is_pesticide = inputs_df_aggregation["product_category"].isin(
     ["INSECTICIDE", "HERBICIDE", "FUNGICIDE"]
 )
+is_pesticide_kg = is_pesticide & units_ha.eq("KG_HA")
+
 inputs_df_aggregation["pesticide_amount_kg_ha"] = np.where(
     is_pesticide, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
 )
@@ -1325,8 +1324,21 @@ inputs_df_aggregation["org_fert_amount_kg_ha"] = (
     inputs_df_aggregation["dry_organic_amount_t_ha"] * 1000
 )
 
+
+def sum_organic_dry_amount(values, standard_mask, organic_mask):
+    """Dry-matter total over manure/compost rows. Returns 0.0 when the only
+    organic inputs are inoculants or liquid biofertilisers, which are applied
+    on a carrier or liquid basis and contribute no dry organic matter."""
+    if not organic_mask.any():
+        return np.nan
+    subset = values[standard_mask]
+    if subset.isna().any():
+        return np.nan
+    return subset.sum()
+
+
 inputs_df_aggregation["synth_fert_nitrogen_kg_ha"] = np.where(
-    is_synth_fert & inputs_df_aggregation["units_ha"].eq("KG_HA"),
+    is_synth_fert_kg & inputs_df_aggregation["units_ha"].eq("KG_HA"),
     inputs_df_aggregation["amount_of_product_applied_imputed"]
     * inputs_df_aggregation["nitrogen_n_imputed"]
     / 100,
@@ -1347,6 +1359,8 @@ def sum_where(series, mask):
 # Storing masks for aggregation function can access them
 inputs_df_aggregation["is_synth_fert"] = is_synth_fert
 inputs_df_aggregation["is_pesticide"] = is_pesticide
+inputs_df_aggregation["is_synth_fert_kg"] = is_synth_fert_kg
+inputs_df_aggregation["is_pesticide_kg"] = is_pesticide_kg
 
 group_cols = ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
 
@@ -1405,7 +1419,7 @@ inputs_df_aggregation = (
         ),
         org_fert_app_tco2eq_ha=(
             "org_fert_app_tco2eq_ha",
-            lambda x: sum_applicable_if_all_available(
+            lambda x: sum_organic_dry_amount(
                 x,
                 inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
                 APPLICABLE_KIND_ORGANIC,
@@ -1416,7 +1430,7 @@ inputs_df_aggregation = (
             "amount_of_product_applied_imputed",
             lambda x: sum_where(
                 x,
-                inputs_df_aggregation.loc[x.index, "is_synth_fert"],
+                inputs_df_aggregation.loc[x.index, "is_synth_fert_kg"],
             ),
         ),
         org_fert_dry_amount_kg_ha=(
@@ -1431,7 +1445,7 @@ inputs_df_aggregation = (
             "amount_of_product_applied_imputed",
             lambda x: sum_where(
                 x,
-                inputs_df_aggregation.loc[x.index, "is_pesticide"],
+                inputs_df_aggregation.loc[x.index, "is_pesticide_kg"],
             ),
         ),
         # Flags
