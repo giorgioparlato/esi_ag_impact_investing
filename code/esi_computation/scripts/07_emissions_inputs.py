@@ -1313,6 +1313,14 @@ inputs_df_aggregation["org_fert_amount_kg_ha"] = (
     inputs_df_aggregation["dry_organic_amount_t_ha"] * 1000
 )
 
+inputs_df_aggregation["synth_fert_nitrogen_kg_ha"] = np.where(
+    is_synth_fert & inputs_df_aggregation["units_ha"].eq("KG_HA"),
+    inputs_df_aggregation["amount_of_product_applied_imputed"]
+    * inputs_df_aggregation["nitrogen_n_imputed"]
+    / 100,
+    np.nan,
+)
+
 
 # Helper function for aggregating pesticide and fertilizer amounts (more refined than APPLICABLE_KIND_SYNTHETIC)
 def sum_where(series, mask):
@@ -1345,6 +1353,13 @@ inputs_df_aggregation = (
         product_categories_count=("product_category", "nunique"),
         categories_organic=("category", join_unique),
         # Emission estimates
+        synth_fert_nitrogen_kg_ha=(
+                    "synth_fert_nitrogen_kg_ha",
+                    lambda x: sum_where(
+                                    x,
+                                    inputs_df_aggregation.loc[x.index, "is_synth_fert"],
+                                ),
+                ),
         synth_input_prod_tco2eq_ha=(
             "synth_input_prod_tco2eq_ha",
             lambda x: sum_applicable_if_all_available(
@@ -1477,6 +1492,7 @@ new_index = [
     "synth_input_prod_tco2eq_ha",
     "synth_input_tran_dist_tco2eq_ha",
     "synth_input_app_tco2eq_ha",
+    "synth_fert_nitrogen_kg_ha",
     "nitrogen_org_t_ha",
     "org_fert_app_tco2eq_ha",
     "flag_missing_emissions_syn_app",
