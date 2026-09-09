@@ -283,6 +283,13 @@ BIOFERT_SUBTYPE_MAP = {
     "AZOSPIRILLUM": "inoculant",
     "BIOL": "liquid_biofertilizer",
     "LIXIVIADO DE LOMBRIZ": "liquid_biofertilizer",
+    "LIXIVIADO DE LOMBRICOMPOSTA": "liquid_biofertilizer",
+    "LIXIVIADO DE HUMUS DE LOMBRIZ": "liquid_biofertilizer",
+    "LIXIVIADO MEJORADO": "liquid_biofertilizer",
+    "LIXIHUMUS": "liquid_biofertilizer",
+    "ACIDO HUMICO DE LOMBRICOMPOSTA": "liquid_biofertilizer",
+    "HUMUS DE LOMBRIZ": "liquid_biofertilizer",
+    "TE DE LOMBRICOMPOSTA": "liquid_biofertilizer"
 }
 
 INOCULANT_NAMES = {
@@ -296,6 +303,13 @@ INOCULANT_NAMES = {
 LIQUID_BIOFERT_N_MG_L = {
     "BIOL": 290,
     "LIXIVIADO DE LOMBRIZ": 839,  # average of values on table 4
+    "LIXIVIADO DE LOMBRICOMPOSTA": 839,
+    "LIXIVIADO DE HUMUS DE LOMBRIZ": 839,
+    "LIXIVIADO MEJORADO": 839,
+    "LIXIHUMUS": 839,
+    "ACIDO HUMICO DE LOMBRICOMPOSTA": 839,
+    "HUMUS DE LOMBRIZ": 839,
+    "TE DE LOMBRICOMPOSTA": 839
 }
 
 # Fill by product name
