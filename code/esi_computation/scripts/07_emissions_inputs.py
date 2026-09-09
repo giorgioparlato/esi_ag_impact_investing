@@ -292,9 +292,25 @@ BIOFERT_SUBTYPE_MAP = {
     "TE DE LOMBRICOMPOSTA": "liquid_biofertilizer"
 }
 
+INOCULANT_NAME_PATTERN = (
+    r"\b(?:MICORRIZ|MICORIZ|MYCO|AZOSPIRIL|AZOTOBACT|AZOFER|AZBIL"
+    r"|RHIZOBIU|BRADYRHIZ|GLOMUS|BACILLUS|BACTIVA|BACTOCROP|BEAUVERIA"
+    r"|METARHIZ|PAECILOMY|TRICHODERM|ENDOSPOR|BURIZE|INOCUL"
+    r"|BIOFERTIBUAP)"
+)
+
 INOCULANT_NAMES = {
     name for name, sub in BIOFERT_SUBTYPE_MAP.items() if sub == "inoculant"
 }
+
+INOCULANT_NAMES |= set(
+    inputs_df_imp_product.loc[
+        inputs_df_imp_product["product_name_applied"].str.contains(
+            INOCULANT_NAME_PATTERN, regex=True, na=False
+        ),
+        "product_name_applied",
+    ].dropna()
+)
 
 
 # Biofert nitrogen content mg/L for liquid biofertilizers, to be applied to convert amounts to kg N for emissions estimation
@@ -1322,13 +1338,13 @@ inputs_df_aggregation = inputs_df_imp_flags.copy()
 
 # Prep to output total amounts of inputs in kg/ha
 NON_SYNTHETIC_KINDS = ["BIOLOGICO/ETOLOGICO/ORGANICO", "BIOFERTILIZANTE", "OTRO"]
-is_synth_fert = ~kind_of_product_imp.isin(NON_SYNTHETIC_KINDS) & product_category.isin(["FERTILIZER", "FOLIAR FERTILIZER"])
-is_synth_fert_kg = is_synth_fert & units_ha.eq("KG_HA")
+is_synth_fert = ~inputs_df_aggregation["kind_of_product_imp"].isin(NON_SYNTHETIC_KINDS) & inputs_df_aggregation["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER"])
+is_synth_fert_kg = is_synth_fert & inputs_df_aggregation["units_ha"].eq("KG_HA")
                  
 is_pesticide = inputs_df_aggregation["product_category"].isin(
     ["INSECTICIDE", "HERBICIDE", "FUNGICIDE"]
 )
-is_pesticide_kg = is_pesticide & units_ha.eq("KG_HA")
+is_pesticide_kg = is_pesticide & inputs_df_aggregation["units_ha"].eq("KG_HA")
 
 inputs_df_aggregation["pesticide_amount_kg_ha"] = np.where(
     is_pesticide, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
@@ -1371,6 +1387,8 @@ def sum_where(series, mask):
 
 
 # Storing masks for aggregation function can access them
+inputs_df_aggregation["is_organic_input"] = is_organic_input
+inputs_df_aggregation["uses_standard_organic_path"] = uses_standard_organic_path
 inputs_df_aggregation["is_synth_fert"] = is_synth_fert
 inputs_df_aggregation["is_pesticide"] = is_pesticide
 inputs_df_aggregation["is_synth_fert_kg"] = is_synth_fert_kg
@@ -1397,7 +1415,7 @@ inputs_df_aggregation = (
                     "synth_fert_nitrogen_kg_ha",
                     lambda x: sum_where(
                                     x,
-                                    inputs_df_aggregation.loc[x.index, "is_synth_fert"],
+                                    inputs_df_aggregation.loc[x.index, "is_synth_fert_kg"],
                                 ),
                 ),
         synth_input_prod_tco2eq_ha=(
@@ -1433,7 +1451,7 @@ inputs_df_aggregation = (
         ),
         org_fert_app_tco2eq_ha=(
             "org_fert_app_tco2eq_ha",
-            lambda x: sum_organic_dry_amount(
+            lambda x: sum_applicable_if_all_available(
                 x,
                 inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
                 APPLICABLE_KIND_ORGANIC,
@@ -1449,10 +1467,10 @@ inputs_df_aggregation = (
         ),
         org_fert_dry_amount_kg_ha=(
             "org_fert_amount_kg_ha",
-            lambda x: sum_applicable_if_all_available(
+            lambda x: sum_organic_dry_amount(
                 x,
-                inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
-                APPLICABLE_KIND_ORGANIC,
+                inputs_df_aggregation.loc[x.index, "uses_standard_organic_path"],
+                inputs_df_aggregation.loc[x.index, "is_organic_input"],
             ),
         ),
         pesticide_amount_kg_ha=(
