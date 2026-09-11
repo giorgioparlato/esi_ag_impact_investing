@@ -171,7 +171,7 @@ TABLE_COLUMNS = {
         "power_source_availability",
     ],
     "table_07_emissions_ag_inputs": [
-        "practice_id",
+        "practice_id", "input_record_status",
         *FLAG_COLUMNS["Inputs"][1],
     ],
     "table_08_emissions_residues": [
@@ -461,7 +461,7 @@ def build_pipeline_availability(
             input_rows,
             inputs.flag_imputed_amount.str.contains(
                 r"\bREPORTED ONLY\b", na=False, regex=True
-            ),
+            )| inputs.input_record_status.eq("NO INPUTS RECORD"),
             "table_07_emissions_ag_inputs",
             "flag_imputed_amount",
         )

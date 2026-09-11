@@ -49,6 +49,7 @@ SELECT
     table_11_emissions_net_ghg.albedo_emissions_tco2eq,
     table_11_emissions_net_ghg.flag_net_ghg,
     table_11_emissions_net_ghg.flag_net_ghg_wfuel,
+    table_11_emissions_net_ghg.input_record_status,
     table_04_economic_features.total_revenue_mxn
 
 FROM table_01_reference
@@ -193,6 +194,11 @@ crop_rules = [
     ("NOT APPLICABLE - CROP IS NOT MAIZE", non_maize_rows),
 ]
 
+no_inputs = maize_rows & df_scores.input_record_status.eq(
+    "NO INPUTS RECORD"
+)
+no_inputs_note = [("NO INPUT RECORD", no_inputs)]
+
 df_scores["flag_esi_land"] = build_score_flag(
     "esi_land",
     crop_rules
@@ -273,8 +279,9 @@ df_scores["flag_esi_climate"] = build_score_flag(
         (
             "MISSING CLIMATE COEFFICIENT",
             maize_rows & df_scores.cc_metric_rate_scaled.isna(),
-        ),
+        ), 
     ],
+    available_notes=no_inputs_note,
 )
 
 df_scores["flag_esi_climate_wfuel"] = build_score_flag(
@@ -288,8 +295,9 @@ df_scores["flag_esi_climate_wfuel"] = build_score_flag(
         (
             "MISSING CLIMATE COEFFICIENT",
             maize_rows & df_scores.cc_metric_rate_scaled.isna(),
-        ),
+        ), 
     ],
+    available_notes=no_inputs_note,
 )
 
 df_scores["flag_esi_climate_albedo"] = build_score_flag(
@@ -317,8 +325,9 @@ df_scores["flag_esi_total"] = build_score_flag(
         (
             "INCOMPLETE ALBEDO SCORE",
             maize_rows & df_scores.esi_climate_albedo.isna(),
-        ),
+        ), 
     ],
+    available_notes=no_inputs_note,
 )
 
 df_scores["flag_esi_total_wfuel"] = build_score_flag(
@@ -334,8 +343,9 @@ df_scores["flag_esi_total_wfuel"] = build_score_flag(
         (
             "INCOMPLETE ALBEDO SCORE",
             maize_rows & df_scores.esi_climate_albedo.isna(),
-        ),
+        ), 
     ],
+    available_notes=no_inputs_note,
 )
 
 

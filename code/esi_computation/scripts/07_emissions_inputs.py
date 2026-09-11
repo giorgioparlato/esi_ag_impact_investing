@@ -34,6 +34,7 @@ from paths import (
     PATH_REFERENCE_TABLE,
     PATH_PROCESSED_TABLES,
     PATH_SQL_DB,
+    PATH_ECONOMIC_FEATURES,
 )
 
 # -----------------------------------------------------------------------------
@@ -70,6 +71,11 @@ KEY_VARS_ORGANIC = [
     "product_moisture_in_the_application",
 ]
 
+# Treat a plot with no input record as having applied no inputs only when it
+# also reported no input-application cost. Set to False to assume no inputs for
+# every plot without a record.
+REQUIRE_NO_INPUT_COST = True
+
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
@@ -82,6 +88,13 @@ syn_inputs_df_raw = pd.read_excel(
 org_inputs_df_raw = pd.read_excel(
     io=PATH_CIMMYT_INPUTS, sheet_name=SHEET_CIMMYT_ORGANIC_INPUTS
 )
+
+# Input-application costs, used to screen out plots that applied inputs
+# without recording them in the supplies sheets.
+economics_df = pd.read_feather(
+    PATH_ECONOMIC_FEATURES, columns=["practice_id", "application_of_inputs"]
+)
+economics_df["practice_id"] = economics_df["practice_id"].astype("string")
 
 # Load plot areas
 areas_df = pd.read_feather(PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"])
@@ -1385,6 +1398,17 @@ def sum_where(series, mask):
         return np.nan
     return subset.sum()
 
+def sum_amount(series, mask):
+    """Total a reported amount over the applicable rows.
+
+    Returns 0.0 when no row is applicable (the input was genuinely not applied)
+    and NaN only when an applicable row has no usable amount.
+    """
+    subset = series[mask]
+    if subset.isna().any():
+        return np.nan
+    return subset.sum()  # 0.0 on an empty subset
+
 
 # Storing masks for aggregation function can access them
 inputs_df_aggregation["is_organic_input"] = is_organic_input
@@ -1413,7 +1437,7 @@ inputs_df_aggregation = (
         # Emission estimates
         synth_fert_nitrogen_kg_ha=(
                     "synth_fert_nitrogen_kg_ha",
-                    lambda x: sum_where(
+                    lambda x: sum_amount(
                                     x,
                                     inputs_df_aggregation.loc[x.index, "is_synth_fert_kg"],
                                 ),
@@ -1460,7 +1484,7 @@ inputs_df_aggregation = (
         # Input amounts
         synth_fert_amount_kg_ha=(
             "amount_of_product_applied_imputed",
-            lambda x: sum_where(
+            lambda x: sum_amount(
                 x,
                 inputs_df_aggregation.loc[x.index, "is_synth_fert_kg"],
             ),
@@ -1475,7 +1499,7 @@ inputs_df_aggregation = (
         ),
         pesticide_amount_kg_ha=(
             "amount_of_product_applied_imputed",
-            lambda x: sum_where(
+            lambda x: sum_amount(
                 x,
                 inputs_df_aggregation.loc[x.index, "is_pesticide_kg"],
             ),
@@ -1570,9 +1594,54 @@ new_index = [
     "pesticide_amount_kg_ha",
     "synth_fert_amount_kg_ha",
     "org_fert_dry_amount_kg_ha",
+    "input_record_status"
 ]
 
 inputs_df_final = inputs_df_final.reindex(columns=new_index)
+
+# Practices with no row in either supplies sheet are assumed to have applied no
+# inputs, and are represented like a practice with no applicable product.
+inputs_df_final["input_record_status"] = "RECORDED"
+
+no_record = reference_lookup.loc[
+    ~reference_lookup["practice_id"].isin(inputs_df_final["practice_id"])
+]
+if REQUIRE_NO_INPUT_COST:
+    reported_input_cost = economics_df.loc[
+        economics_df["application_of_inputs"].fillna(0).gt(0), "practice_id"
+    ]
+    no_record = no_record.loc[~no_record["practice_id"].isin(reported_input_cost)]
+
+no_inputs_df = (
+    no_record.merge(areas_df, on="practice_id", how="left")
+    .assign(
+        activities="",
+        activity_count=0,
+        product_types="",
+        product_types_count=0,
+        product_categories="",
+        product_categories_count=0,
+        categories_organic="",
+        synth_fert_amount_kg_ha=0.0,
+        synth_fert_nitrogen_kg_ha=0.0,
+        pesticide_amount_kg_ha=0.0,
+        flag_missing_emissions_syn_app="NOT APPLICABLE",
+        flag_missing_emissions_syn_prod="NOT APPLICABLE",
+        flag_missing_emissions_syn_tran="NOT APPLICABLE",
+        flag_missing_emissions_org_app="NOT APPLICABLE",
+        flag_imputed_product_type="NOT APPLICABLE",
+        flag_imputed_amount="NOT APPLICABLE",
+        flag_imputed_nitrogen="NOT APPLICABLE",
+        flag_imputed_moisture_level="NOT APPLICABLE",
+        flag_pesticides_use=0,
+        input_record_status="NO INPUTS RECORD",
+    )
+    .reindex(columns=new_index)
+)
+
+inputs_df_final = pd.concat(
+    [inputs_df_final, no_inputs_df], ignore_index=True
+).sort_values(by=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"])
 
 duplicate_practices = inputs_df_final["practice_id"].duplicated(keep=False)
 if duplicate_practices.any():
