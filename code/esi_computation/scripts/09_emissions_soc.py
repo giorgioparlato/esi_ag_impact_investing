@@ -554,6 +554,9 @@ soc_df_mapping["fi_bau"] = soc_df_mapping.apply(map_fi_bau, axis=1)
 # Assign FLU directly from climate_class
 soc_df_mapping["flu"] = soc_df_mapping["climate_class"].map(FLU_MAPPING)
 
+# Keep original tillage (NAs preserved) for checks
+soc_df_mapping["og_tillage"] = soc_df_mapping["tillage"]
+
 # Fill missing values for tillage with 'TRADITIONAL TILLAGE'
 soc_df_mapping["tillage"] = soc_df_mapping["tillage"].fillna("TRADITIONAL TILLAGE")
 
@@ -701,6 +704,7 @@ new_index = [
     "climate_class",
     "soil_code_ipcc",
     "flu",
+    "og_tillage",
     "tillage",
     "tillage_count",
     "tillage_ca_dummy",
