@@ -41,6 +41,7 @@ SELECT
     table_07_emissions_ag_inputs.flag_missing_emissions_syn_tran,
     table_07_emissions_ag_inputs.flag_missing_emissions_org_app,
     table_07_emissions_ag_inputs.flag_imputed_amount,
+    table_07_emissions_ag_inputs.input_record_status,
     
     table_07_emissions_ag_inputs.synth_input_prod_tco2eq,
     table_07_emissions_ag_inputs.synth_input_tran_dist_tco2eq,
@@ -116,6 +117,7 @@ complete_organic_input_statuses = [
     "NOT APPLICABLE",
     "AVAILABLE | NOT APPLICABLE",
 ]
+no_inputs = df.input_record_status.eq("NO INPUTS RECORD")
 
 # Each rule defines both an invalidation mask and its diagnostic reason.
 common_invalidation_rules = [
@@ -148,10 +150,11 @@ common_invalidation_rules = [
             missing_synthetic_input_pattern, na=False, regex=True
         ),
     ),
-    (
+   (
         "INPUT AMOUNTS INCLUDE IMPUTED OR MISSING VALUES",
-        ~df.flag_imputed_amount.str.contains(
-            r"\bREPORTED ONLY\b", na=False, regex=True
+        ~(
+            df.flag_imputed_amount.str.contains(r"\bREPORTED ONLY\b", na=False, regex=True)
+            | df.flag_imputed_amount.eq("NOT APPLICABLE") | no_inputs
         ),
     ),
     (

@@ -34,6 +34,7 @@ from paths import (
     PATH_REFERENCE_TABLE,
     PATH_PROCESSED_TABLES,
     PATH_SQL_DB,
+    PATH_ECONOMIC_FEATURES,
 )
 
 # -----------------------------------------------------------------------------
@@ -70,6 +71,11 @@ KEY_VARS_ORGANIC = [
     "product_moisture_in_the_application",
 ]
 
+# Treat a plot with no input record as having applied no inputs only when it
+# also reported no input-application cost. Set to False to assume no inputs for
+# every plot without a record.
+REQUIRE_NO_INPUT_COST = True
+
 # -----------------------------------------------------------------------------
 # Import data
 # -----------------------------------------------------------------------------
@@ -82,6 +88,13 @@ syn_inputs_df_raw = pd.read_excel(
 org_inputs_df_raw = pd.read_excel(
     io=PATH_CIMMYT_INPUTS, sheet_name=SHEET_CIMMYT_ORGANIC_INPUTS
 )
+
+# Input-application costs, used to screen out plots that applied inputs
+# without recording them in the supplies sheets.
+economics_df = pd.read_feather(
+    PATH_ECONOMIC_FEATURES, columns=["practice_id", "application_of_inputs"]
+)
+economics_df["practice_id"] = economics_df["practice_id"].astype("string")
 
 # Load plot areas
 areas_df = pd.read_feather(PATH_AGRONOMIC_FEATURES, columns=["practice_id", "area_ha"])
@@ -269,6 +282,11 @@ most_common_categories = (
 # Create column for imputation
 inputs_df_imp_product["kind_of_product_imp"] = inputs_df_imp_product["kind_of_product"]
 
+CATEGORY_KIND_FALLBACK = {
+    "FOLIAR FERTILIZER": "QUIMICO",
+    "BIOFERTILIZER": "BIOLOGICO/ETOLOGICO/ORGANICO",
+}
+
 # Introduce mapping for some of most common biofertilizers we can include
 BIOFERT_SUBTYPE_MAP = {
     # Mycorrhizal inoculants (AMF) and AZOSPIRILLUM  — no direct N inputs (Lazcano et al. 2014)
@@ -278,11 +296,34 @@ BIOFERT_SUBTYPE_MAP = {
     "AZOSPIRILLUM": "inoculant",
     "BIOL": "liquid_biofertilizer",
     "LIXIVIADO DE LOMBRIZ": "liquid_biofertilizer",
+    "LIXIVIADO DE LOMBRICOMPOSTA": "liquid_biofertilizer",
+    "LIXIVIADO DE HUMUS DE LOMBRIZ": "liquid_biofertilizer",
+    "LIXIVIADO MEJORADO": "liquid_biofertilizer",
+    "LIXIHUMUS": "liquid_biofertilizer",
+    "ACIDO HUMICO DE LOMBRICOMPOSTA": "liquid_biofertilizer",
+    "HUMUS DE LOMBRIZ": "liquid_biofertilizer",
+    "TE DE LOMBRICOMPOSTA": "liquid_biofertilizer"
 }
+
+INOCULANT_NAME_PATTERN = (
+    r"\b(?:MICORRIZ|MICORIZ|MYCO|AZOSPIRIL|AZOTOBACT|AZOFER|AZBIL"
+    r"|RHIZOBIU|BRADYRHIZ|GLOMUS|BACILLUS|BACTIVA|BACTOCROP|BEAUVERIA"
+    r"|METARHIZ|PAECILOMY|TRICHODERM|ENDOSPOR|BURIZE|INOCUL"
+    r"|BIOFERTIBUAP)"
+)
 
 INOCULANT_NAMES = {
     name for name, sub in BIOFERT_SUBTYPE_MAP.items() if sub == "inoculant"
 }
+
+INOCULANT_NAMES |= set(
+    inputs_df_imp_product.loc[
+        inputs_df_imp_product["product_name_applied"].str.contains(
+            INOCULANT_NAME_PATTERN, regex=True, na=False
+        ),
+        "product_name_applied",
+    ].dropna()
+)
 
 
 # Biofert nitrogen content mg/L for liquid biofertilizers, to be applied to convert amounts to kg N for emissions estimation
@@ -291,6 +332,13 @@ INOCULANT_NAMES = {
 LIQUID_BIOFERT_N_MG_L = {
     "BIOL": 290,
     "LIXIVIADO DE LOMBRIZ": 839,  # average of values on table 4
+    "LIXIVIADO DE LOMBRICOMPOSTA": 839,
+    "LIXIVIADO DE HUMUS DE LOMBRIZ": 839,
+    "LIXIVIADO MEJORADO": 839,
+    "LIXIHUMUS": 839,
+    "ACIDO HUMICO DE LOMBRICOMPOSTA": 839,
+    "HUMUS DE LOMBRIZ": 839,
+    "TE DE LOMBRICOMPOSTA": 839
 }
 
 # Fill by product name
@@ -311,6 +359,13 @@ inputs_df_imp_product.loc[
     & inputs_df_imp_product["product_category"].isin(most_common_categories.index),
     "kind_of_product_imp",
 ] = inputs_df_imp_product["product_category"].map(most_common_categories)
+
+# Fill remaining by category-kind fallback
+inputs_df_imp_product.loc[
+    inputs_df_imp_product["kind_of_product_imp"].isna()
+    & inputs_df_imp_product["product_category"].isin(CATEGORY_KIND_FALLBACK.keys()),
+    "kind_of_product_imp",
+] = inputs_df_imp_product["product_category"].map(CATEGORY_KIND_FALLBACK)
 
 inputs_df_imp_product.loc[
     inputs_df_imp_product["product_name_applied"].isin(LIQUID_BIOFERT_N_MG_L),
@@ -727,7 +782,7 @@ mask_urea = (
 
 # Source: compiled from equation 20 in reference
 # Reference: Juárez-Hernández, S., Usón, S., & Pardo, C. S. (2019). Assessing maize production systems in Mexico from an energy, exergy, and greenhouse-gas emissions perspective. Energy, 170, 199-211.
-inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] = 0.73
+inputs_df_imp_estimation_syn.loc[mask_urea, "ef_synth_input_app_kg_co2eq_unit"] = (0.73 + 4.29*0.46)  # 0.73 kg CO2eq/kg UREA + 4.29 kg CO2eq/kg N * 46% N content in UREA
 
 # Other synthetic FERTILIZER / INSECTICIDE / FUNGICIDE / HERBICIDE with N > 0, KG_HA, not UREA
 mask_n_inputs = (
@@ -1295,22 +1350,42 @@ def imputation_status_if_applicable(
 inputs_df_aggregation = inputs_df_imp_flags.copy()
 
 # Prep to output total amounts of inputs in kg/ha
-is_synth_fert = (
-    inputs_df_aggregation["kind_of_product_imp"] == "QUIMICO"
-) & inputs_df_aggregation["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER"])
-inputs_df_aggregation["synth_fert_amount_kg_ha"] = np.where(
-    is_synth_fert, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
-)
-
+NON_SYNTHETIC_KINDS = ["BIOLOGICO/ETOLOGICO/ORGANICO", "BIOFERTILIZANTE", "OTRO"]
+is_synth_fert = ~inputs_df_aggregation["kind_of_product_imp"].isin(NON_SYNTHETIC_KINDS) & inputs_df_aggregation["product_category"].isin(["FERTILIZER", "FOLIAR FERTILIZER"])
+is_synth_fert_kg = is_synth_fert & inputs_df_aggregation["units_ha"].eq("KG_HA")
+                 
 is_pesticide = inputs_df_aggregation["product_category"].isin(
     ["INSECTICIDE", "HERBICIDE", "FUNGICIDE"]
 )
+is_pesticide_kg = is_pesticide & inputs_df_aggregation["units_ha"].eq("KG_HA")
+
 inputs_df_aggregation["pesticide_amount_kg_ha"] = np.where(
     is_pesticide, inputs_df_aggregation["amount_of_product_applied_imputed"], np.nan
 )
 
 inputs_df_aggregation["org_fert_amount_kg_ha"] = (
     inputs_df_aggregation["dry_organic_amount_t_ha"] * 1000
+)
+
+
+def sum_organic_dry_amount(values, standard_mask, organic_mask):
+    """Dry-matter total over manure/compost rows. Returns 0.0 when the only
+    organic inputs are inoculants or liquid biofertilisers, which are applied
+    on a carrier or liquid basis and contribute no dry organic matter."""
+    if not organic_mask.any():
+        return np.nan
+    subset = values[standard_mask]
+    if subset.isna().any():
+        return np.nan
+    return subset.sum()
+
+
+inputs_df_aggregation["synth_fert_nitrogen_kg_ha"] = np.where(
+    is_synth_fert_kg & inputs_df_aggregation["units_ha"].eq("KG_HA"),
+    inputs_df_aggregation["amount_of_product_applied_imputed"]
+    * inputs_df_aggregation["nitrogen_n_imputed"]
+    / 100,
+    np.nan,
 )
 
 
@@ -1323,10 +1398,25 @@ def sum_where(series, mask):
         return np.nan
     return subset.sum()
 
+def sum_amount(series, mask):
+    """Total a reported amount over the applicable rows.
+
+    Returns 0.0 when no row is applicable (the input was genuinely not applied)
+    and NaN only when an applicable row has no usable amount.
+    """
+    subset = series[mask]
+    if subset.isna().any():
+        return np.nan
+    return subset.sum()  # 0.0 on an empty subset
+
 
 # Storing masks for aggregation function can access them
+inputs_df_aggregation["is_organic_input"] = is_organic_input
+inputs_df_aggregation["uses_standard_organic_path"] = uses_standard_organic_path
 inputs_df_aggregation["is_synth_fert"] = is_synth_fert
 inputs_df_aggregation["is_pesticide"] = is_pesticide
+inputs_df_aggregation["is_synth_fert_kg"] = is_synth_fert_kg
+inputs_df_aggregation["is_pesticide_kg"] = is_pesticide_kg
 
 group_cols = ["farmer_id", "plot_id", "logbook_id", "practice_id", "year"]
 
@@ -1345,6 +1435,13 @@ inputs_df_aggregation = (
         product_categories_count=("product_category", "nunique"),
         categories_organic=("category", join_unique),
         # Emission estimates
+        synth_fert_nitrogen_kg_ha=(
+                    "synth_fert_nitrogen_kg_ha",
+                    lambda x: sum_amount(
+                                    x,
+                                    inputs_df_aggregation.loc[x.index, "is_synth_fert_kg"],
+                                ),
+                ),
         synth_input_prod_tco2eq_ha=(
             "synth_input_prod_tco2eq_ha",
             lambda x: sum_applicable_if_all_available(
@@ -1387,24 +1484,24 @@ inputs_df_aggregation = (
         # Input amounts
         synth_fert_amount_kg_ha=(
             "amount_of_product_applied_imputed",
-            lambda x: sum_where(
+            lambda x: sum_amount(
                 x,
-                inputs_df_aggregation.loc[x.index, "is_synth_fert"],
+                inputs_df_aggregation.loc[x.index, "is_synth_fert_kg"],
             ),
         ),
         org_fert_dry_amount_kg_ha=(
             "org_fert_amount_kg_ha",
-            lambda x: sum_applicable_if_all_available(
+            lambda x: sum_organic_dry_amount(
                 x,
-                inputs_df_aggregation.loc[x.index, "kind_of_product_imp"],
-                APPLICABLE_KIND_ORGANIC,
+                inputs_df_aggregation.loc[x.index, "uses_standard_organic_path"],
+                inputs_df_aggregation.loc[x.index, "is_organic_input"],
             ),
         ),
         pesticide_amount_kg_ha=(
             "amount_of_product_applied_imputed",
-            lambda x: sum_where(
+            lambda x: sum_amount(
                 x,
-                inputs_df_aggregation.loc[x.index, "is_pesticide"],
+                inputs_df_aggregation.loc[x.index, "is_pesticide_kg"],
             ),
         ),
         # Flags
@@ -1477,6 +1574,7 @@ new_index = [
     "synth_input_prod_tco2eq_ha",
     "synth_input_tran_dist_tco2eq_ha",
     "synth_input_app_tco2eq_ha",
+    "synth_fert_nitrogen_kg_ha",
     "nitrogen_org_t_ha",
     "org_fert_app_tco2eq_ha",
     "flag_missing_emissions_syn_app",
@@ -1496,9 +1594,54 @@ new_index = [
     "pesticide_amount_kg_ha",
     "synth_fert_amount_kg_ha",
     "org_fert_dry_amount_kg_ha",
+    "input_record_status"
 ]
 
 inputs_df_final = inputs_df_final.reindex(columns=new_index)
+
+# Practices with no row in either supplies sheet are assumed to have applied no
+# inputs, and are represented like a practice with no applicable product.
+inputs_df_final["input_record_status"] = "RECORDED"
+
+no_record = reference_lookup.loc[
+    ~reference_lookup["practice_id"].isin(inputs_df_final["practice_id"])
+]
+if REQUIRE_NO_INPUT_COST:
+    reported_input_cost = economics_df.loc[
+        economics_df["application_of_inputs"].fillna(0).gt(0), "practice_id"
+    ]
+    no_record = no_record.loc[~no_record["practice_id"].isin(reported_input_cost)]
+
+no_inputs_df = (
+    no_record.merge(areas_df, on="practice_id", how="left")
+    .assign(
+        activities="",
+        activity_count=0,
+        product_types="",
+        product_types_count=0,
+        product_categories="",
+        product_categories_count=0,
+        categories_organic="",
+        synth_fert_amount_kg_ha=0.0,
+        synth_fert_nitrogen_kg_ha=0.0,
+        pesticide_amount_kg_ha=0.0,
+        flag_missing_emissions_syn_app="NOT APPLICABLE",
+        flag_missing_emissions_syn_prod="NOT APPLICABLE",
+        flag_missing_emissions_syn_tran="NOT APPLICABLE",
+        flag_missing_emissions_org_app="NOT APPLICABLE",
+        flag_imputed_product_type="NOT APPLICABLE",
+        flag_imputed_amount="NOT APPLICABLE",
+        flag_imputed_nitrogen="NOT APPLICABLE",
+        flag_imputed_moisture_level="NOT APPLICABLE",
+        flag_pesticides_use=0,
+        input_record_status="NO INPUTS RECORD",
+    )
+    .reindex(columns=new_index)
+)
+
+inputs_df_final = pd.concat(
+    [inputs_df_final, no_inputs_df], ignore_index=True
+).sort_values(by=["farmer_id", "plot_id", "logbook_id", "practice_id", "year"])
 
 duplicate_practices = inputs_df_final["practice_id"].duplicated(keep=False)
 if duplicate_practices.any():

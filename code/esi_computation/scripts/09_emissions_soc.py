@@ -415,7 +415,7 @@ def append_reason(reasons: pd.Series, mask: pd.Series, label: str) -> None:
 # --- FI classification, IPCC 2019 Vol 4 Ch 5 Table 5.5 -------------------------------
 # --- thresholds ----------------------------------------------------------------------
 # We recognize there is a linear relationship between residues retained and SOC sequestration, but the IPCC methodology we are using works with thresholds.
-RESIDUE_RETURNED_PCT = 60  # if farms return >60% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
+RESIDUE_RETURNED_PCT = 75  # if farms return >75% of residues they are considered as returning residues, otherwise they are considered as removing residues. The threshold is introduced due to the categorical structure of IPCC's methodology
 # High residue threshold introduced to handle note 4 in IPCC Figure 5.1 where high residues can be considered as a practice increasing C input
 HIGH_RESIDUE_DM_T_HA = 6  # 3rd quartile for residues returned in the dataset is 5.57dm_t, we set the threshold to 6dm_t to classify farms with high residues returned. 
 
@@ -553,6 +553,9 @@ soc_df_mapping["fi_bau"] = soc_df_mapping.apply(map_fi_bau, axis=1)
 
 # Assign FLU directly from climate_class
 soc_df_mapping["flu"] = soc_df_mapping["climate_class"].map(FLU_MAPPING)
+
+# Keep original tillage (NAs preserved) for checks
+soc_df_mapping["og_tillage"] = soc_df_mapping["tillage"]
 
 # Fill missing values for tillage with 'TRADITIONAL TILLAGE'
 soc_df_mapping["tillage"] = soc_df_mapping["tillage"].fillna("TRADITIONAL TILLAGE")
@@ -701,6 +704,7 @@ new_index = [
     "climate_class",
     "soil_code_ipcc",
     "flu",
+    "og_tillage",
     "tillage",
     "tillage_count",
     "tillage_ca_dummy",
