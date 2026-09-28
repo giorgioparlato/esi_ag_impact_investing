@@ -212,7 +212,7 @@ df_scores["flag_esi_land"] = build_score_flag(
 )
 
 rainfed_scored_rows = df_scores.hydric_regime.eq("RAINFED") & ~no_water_source
-wastewater_rows = df_scores.hydric_regime.eq("IRRIGATION") & df_scores.water_sources.eq(
+wastewater_rows = df_scores.water_sources.eq(
     "WASTEWATER (E.G. INDUSTRIAL AND/OR DOMESTIC USE)"
 )
 calculated_water_rows = maize_rows & ~rainfed_zero_rows & ~wastewater_rows
