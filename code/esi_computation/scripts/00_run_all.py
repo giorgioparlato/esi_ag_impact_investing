@@ -21,6 +21,7 @@ scripts = [
     "10_emissions_albedo.py",
     "11_emissions_net_ghg.py",
     "12_esi_scores.py",
+    "13_data_availability_summary.py",
 ]
 
 

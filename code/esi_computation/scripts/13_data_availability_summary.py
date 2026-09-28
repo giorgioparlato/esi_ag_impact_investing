@@ -119,11 +119,12 @@ FLAG_COLUMNS = {
             "flag_missing_emissions_syn_app",
             "flag_missing_emissions_org_app",
             "flag_imputed_amount",
+            "flag_pesticides_use",
         ],
     ),
     "Residues": (
         "table_08_emissions_residues",
-        ["flag_total_pct", "flag_residue_emissions"],
+        ["flag_total_pct", "flag_burned_pct", "flag_residue_emissions"],
     ),
     "SOC": (
         "table_09_emissions_soc",
@@ -175,8 +176,7 @@ TABLE_COLUMNS = {
     ],
     "table_08_emissions_residues": [
         "practice_id",
-        "flag_total_pct",
-        "flag_residue_emissions",
+        *FLAG_COLUMNS["Residues"][1],
     ],
     "table_09_emissions_soc": [
         "practice_id",
