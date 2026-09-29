@@ -91,10 +91,6 @@ PATH_ESI_COEFFICIENTS = (
     PATH_DATA / "raw" / "esi_coefficients" / "esi_coefficients_table_20260127.xlsx"
 )
 
-# Path to water tariffs
-# Source: https://www.gob.mx/conagua/documentos/ley-federal-de-derechos-386262
-PATH_WATER_TARIFFS = PATH_DATA / "raw" / "water" / "water_tariffs_conagua.xlsx"
-
 # -----------------------------------------------------------------------------
 # Processed tables
 # -----------------------------------------------------------------------------
@@ -104,7 +100,7 @@ PATH_REFERENCE_TABLE = PATH_PROCESSED_TABLES / "table_01_reference.feather"
 PATH_ECONOMIC_FEATURES = PATH_PROCESSED_TABLES / "table_04_economic_features.feather"
 PATH_REF_TABLE_ENRICHED = PATH_PROCESSED_TABLES / "table_02_reference_enriched.feather"
 PATH_AGRONOMIC_FEATURES = PATH_PROCESSED_TABLES / "table_03_agronomic_features.feather"
-PATH_WATER_IMPUTATION = PATH_PROCESSED_TABLES / "table_05_a_water_imputation.feather"
+PATH_WATER_FEATURES = PATH_PROCESSED_TABLES / "table_05_water_features.feather"
 PATH_AG_INPUTS = PATH_PROCESSED_TABLES / "table_07_emissions_ag_inputs.feather"
 PATH_CROP_RESIDUES = PATH_PROCESSED_TABLES / "table_08_emissions_residues.feather"
 
@@ -112,7 +108,6 @@ PATH_CROP_RESIDUES = PATH_PROCESSED_TABLES / "table_08_emissions_residues.feathe
 # SQL Database
 # -----------------------------------------------------------------------------
 PATH_SQL_DB = PATH_DATA / "processed" / "sql_db" / "cimmyt.db"
-PATH_SQL_DB_EXT = PATH_DATA / "processed" / "sql_db" / "cimmytExt.db"
 # -----------------------------------------------------------------------------
 # Ensure required directories exist
 # -----------------------------------------------------------------------------

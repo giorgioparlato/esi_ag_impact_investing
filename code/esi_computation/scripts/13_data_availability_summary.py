@@ -101,8 +101,8 @@ FLAG_COLUMNS = {
         ["unit_support_status_grain", "unit_support_status_forage"],
     ),
     "Water": (
-        "table_05_b_water_features",
-        ["water_consumption_flag", "water_use_source"],
+        "table_05_water_features",
+        ["water_consumption_flag"],
     ),
     "Fuel": (
         "table_06_emissions_fuel",
@@ -158,11 +158,10 @@ TABLE_COLUMNS = {
         "unit_support_status_grain",
         "unit_support_status_forage",
     ],
-    "table_05_b_water_features": [
+    "table_05_water_features": [
         "practice_id",
-        "water_cons_hyb_ml_dam3",
+        "water_cons_rep_dam3",
         "water_consumption_flag",
-        "water_use_source",
     ],
     "table_06_emissions_fuel": [
         "practice_id",
@@ -381,17 +380,17 @@ def build_pipeline_availability(
             )
         )
 
-    water = restrict_to_reference(frames["table_05_b_water_features"], reference_ids)
+    water = restrict_to_reference(frames["table_05_water_features"], reference_ids)
     water_rows = pd.Series(True, index=water.index)
     rows.append(
         availability_row(
             "Water",
-            "Hybrid water-use estimate",
+            "Reported water-use estimate",
             "Practices represented in the water module",
             water_rows,
-            water.water_cons_hyb_ml_dam3.notna(),
-            "table_05_b_water_features",
-            "water_cons_hyb_ml_dam3",
+            water.water_cons_rep_dam3.notna(),
+            "table_05_water_features",
+            "water_cons_rep_dam3",
         )
     )
 
