@@ -42,8 +42,8 @@ SELECT
 
     table_03_agronomic_features.area_km2,
     table_03_agronomic_features.crops,
-    table_05_b_water_features.water_cons_hyb_ml_dam3,
-    table_05_b_water_features.water_sources,
+    table_05_water_features.water_cons_rep_dam3,
+    table_05_water_features.water_sources,
     table_11_emissions_net_ghg.net_ghg_emissions_tco2eq,
     table_11_emissions_net_ghg.net_ghg_emissions_wfuel_tco2eq,
     table_11_emissions_net_ghg.albedo_emissions_tco2eq,
@@ -56,7 +56,7 @@ FROM table_01_reference
 
 LEFT JOIN table_02_reference_enriched USING (practice_id)
 LEFT JOIN table_03_agronomic_features USING (practice_id)
-LEFT JOIN table_05_b_water_features USING (practice_id)
+LEFT JOIN table_05_water_features USING (practice_id)
 LEFT JOIN table_11_emissions_net_ghg USING (practice_id)
 LEFT JOIN table_04_economic_features USING (practice_id)
 """
@@ -121,7 +121,7 @@ df_scores["esi_land"] = df_scores["area_km2"] * df_scores["luc_metric_scaled"]
 # Water ESI scores
 # A RAINFED plot is only zero-scored when it reports no water source at all,
 # i.e. it does not appear in the irrigation dataset behind
-# table_05_b_water_features. RAINFED plots that do report a water source and
+# table_05_water_features. RAINFED plots that do report a water source and
 # irrigation events are scored like any other plot.
 no_water_source = df_scores.water_sources.isna()
 
@@ -140,11 +140,11 @@ water_conditions = [
     rainfed_zero_rows,
     wastewater_rows,
     valid_water_source
-    & df_scores.water_cons_hyb_ml_dam3.notna()
+    & df_scores.water_cons_rep_dam3.notna()
     & df_scores.ro_metric_scaled.notna(),
 ]
 
-water_choices = [0, 0, df_scores.water_cons_hyb_ml_dam3 * df_scores.ro_metric_scaled]
+water_choices = [0, 0, df_scores.water_cons_rep_dam3 * df_scores.ro_metric_scaled]
 
 df_scores["esi_water"] = np.select(water_conditions, water_choices, default=np.nan)
 
@@ -246,7 +246,7 @@ df_scores["flag_esi_water"] = build_score_flag(
         ),
         (
             "MISSING WATER USE",
-            calculated_water_rows & df_scores.water_cons_hyb_ml_dam3.isna(),
+            calculated_water_rows & df_scores.water_cons_rep_dam3.isna(),
         ),
         (
             "MISSING WATER ESI COEFFICIENT",

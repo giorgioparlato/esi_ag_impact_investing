@@ -54,9 +54,9 @@ SELECT
 
     table_06_emissions_fuel.fuel_cons_status,
     table_06_emissions_fuel.fuel_cons_tco2eq,
-    table_05_b_water_features.irrigation_types,
-    table_05_b_water_features.irr_equip_tco2eq,
-    table_05_b_water_features.irr_app_tco2eq,
+    table_05_water_features.irrigation_types,
+    table_05_water_features.irr_equip_tco2eq,
+    table_05_water_features.irr_app_tco2eq,
 
     table_09_emissions_soc.flag_soc_emissions,
     table_09_emissions_soc.soc_delta_tco2eq,
@@ -66,7 +66,7 @@ SELECT
 FROM table_01_reference
 
 LEFT JOIN table_03_agronomic_features USING (practice_id)
-LEFT JOIN table_05_b_water_features USING (practice_id)
+LEFT JOIN table_05_water_features USING (practice_id)
 LEFT JOIN table_06_emissions_fuel USING (practice_id)
 LEFT JOIN table_07_emissions_ag_inputs USING (practice_id)
 LEFT JOIN table_08_emissions_residues USING (practice_id)
