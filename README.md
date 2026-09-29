@@ -112,8 +112,7 @@ tables must already exist and be current.
 | `02_geospatial_operations.py` | Adds geospatial classifications and ESI coefficients. |
 | `03_agronomic_features.py` | Calculates agronomic features and yield-unit support statuses. |
 | `04_economic_features.py` | Calculates costs, revenues, and related economic features. |
-| `05_a_water_imputation.py` | Imputes eligible missing irrigation-water observations. |
-| `05_b_water_features.py` | Calculates water-use variables and irrigation emissions. |
+| `05_water_features.py` | Calculates water-use variables and irrigation emissions. |
 | `06_emissions_fuel.py` | Calculates fuel emissions and fuel-data statuses. |
 | `07_emissions_inputs.py` | Calculates synthetic- and organic-input emissions. |
 | `08_emissions_residues.py` | Calculates crop-residue emissions and completeness statuses. |
