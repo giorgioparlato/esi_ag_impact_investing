@@ -323,6 +323,7 @@ soc_crop_res_df = pd.read_feather(
         "logbook_id",
         "practice_id",
         "residues_returned_perc_harvest",
+        "surface_cover_perc_harvest",
         "maize_residues_returned_dm_t_ha",
         "maize_residues_surface_cover_dm_t_ha",
         "flag_residue_emissions",
@@ -682,7 +683,7 @@ soc_df_estimation["tillage_ca_dummy"] = np.where(
 # Source: threshold for crop residues in accordance with 30% surface cover of CA (paper mentions 2-3 dmT/ha) https://doi.org/10.1007/s13593-017-0432-z
 soc_df_estimation["ca_fao_dummy"] = np.where(
     (soc_df_estimation["tillage_ca_dummy"] == 1)
-    & (soc_df_estimation["maize_residues_surface_cover_dm_t_ha"] >= 2.5),
+    & (soc_df_estimation["surface_cover_perc_harvest"] > 60),
     1,
     0,
 )
