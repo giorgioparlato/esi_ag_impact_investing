@@ -1,0 +1,89 @@
+---
+title: "coefficients_figure"
+output: html_document
+date: "2026-06-11"
+---
+
+## Setup
+```{r}
+
+library(ggplot2)
+library(tidyverse)
+library(tibble)
+library(patchwork)
+
+df <- read_csv("esi_coefficients.csv")
+df <- df |> rename(pft = 1, regions = 2, land_esi = 3, water_esi = 4, carbon_esi = 5) 
+
+pft_levels  <- c("boreal","grass_c3","grass_c4","temperate","tropical","barren")
+reg_levels  <- c("Asia","North America","Europe","Africa",
+                 "South America","Oceania","Australia")
+
+df <- df |>
+  mutate(
+    pft        = factor(pft, levels = pft_levels),
+    regions    = factor(regions, levels = reg_levels)
+  )
+
+coulimpact <- colorRampPalette(c("#FFFFE5","#FFF7BC","#FEE391","#FEC44F",
+                                 "#FE9929","#EC7014","#CC4C02","#993404"))(100)
+
+# numbers format
+sci_lab <- function(v)
+  ifelse(is.na(v), "",
+  ifelse(v == 0, "0",
+  ifelse(abs(v) < 0.01, formatC(v, format = "e", digits = 1),   # scientific only if < 0.01
+                        formatC(v, format = "f", digits = 2))))  # else plain 2-dp
+
+carbon_val <- mean(df$carbon_esi) ## carbon_esi coefficient is the same across veg_types
+
+bar_lab <- function(x) ifelse(x == 0, "0", formatC(x, format = "g", digits = 1)) # scientific notation for legend scale
+
+```
+
+## Build panels and combine them
+
+```{r}
+library(patchwork)
+
+# each panel builds its OWN scale (own limits + own colourbar)
+heat_map <- function(valcol, title) {
+  vmax <- max(df[[valcol]], na.rm = TRUE)
+  ggplot(df, aes(pft, regions, fill = .data[[valcol]])) +
+    geom_tile(colour = "grey75", linewidth = 0.3) +
+    geom_text(aes(label = sci_lab(.data[[valcol]])), size = 2.4) +
+    scale_fill_gradientn(colours = coulimpact, limits = c(0, vmax), na.value = "white",
+                         labels = bar_lab, name = NULL,
+                         guide = guide_colourbar(barheight = unit(3, "cm"), barwidth = unit(0.35, "cm"),
+                                                 ticks.colour = "black", frame.colour = NA)) +
+    scale_x_discrete(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) +
+    coord_equal() + labs(title = title, x = NULL, y = NULL) +
+    theme_minimal(base_size = 11) +
+    theme(plot.title = element_text(hjust = .5, size = 11, face = "bold"),
+          axis.text.x = element_text(angle = 30, hjust = 1),
+          panel.grid = element_blank(), legend.position = "right")
+}
+
+p_c <- ggplot(tibble(x = "c", y = "c", value = carbon_val), aes(x, y, fill = value)) +
+  geom_tile(colour = "grey75", linewidth = 0.3, fill= "#FFFFE5") +
+  geom_text(aes(label = sci_lab(value)), size = 2.4) +
+  coord_equal() + labs(title = expression(bold("Carbon ESI-A (per 1t of CO"[2]*"e / yr)")), x = NULL, y = NULL) +
+  theme_void(base_size = 11) +
+  theme(plot.title = element_text(hjust = .5, size = 11, face = "bold"),
+        legend.position = "none")
+
+p_l <- heat_map("land_esi",  expression(bold("Land ESI  (per 1 km"^2*")")))
+p_w <- heat_map("water_esi", expression(bold("Water ESI  (per 10"^3~"m"^3/yr*")")))
+
+combined <- (p_c / p_l / p_w) +
+  plot_layout(heights = c(1.5, 7, 8))
+
+print(combined)
+```
+
+## Save figure
+```{r}
+
+ggsave("esi_combined_ownscales_updated.png", combined, width = 7, height = 9, dpi = 300, bg = "white")
+```
+

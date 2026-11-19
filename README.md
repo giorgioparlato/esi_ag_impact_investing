@@ -16,12 +16,13 @@ classified as maize only.
 code/
   esi_computation/
     scripts/          Ordered pipeline scripts and shared path configuration
+  esi_analysis/       Script to extract relevant data from computation script and analyze results.
 environment.yml       Conda environment definition
 README.md             Setup and execution guide
 ```
 
 Input data, generated outputs, exploratory notebooks, and local environment
-files are excluded from version control.
+files are excluded from version control and this repository, with the exception of the ESI coefficients used.
 
 ## Environment Setup
 
@@ -154,3 +155,10 @@ calculation status of ESI component and total scores. Scientific definitions,
 formulas, emission factors, assumptions, and full flag interpretations are
 maintained in the separate methodology documentation accompanying
 accompanying the main scientific publication.
+
+## Script to extract relevant outputs and used for analysis
+| Script | Purpose |
+|---|---|
+| `extract_db.ipynb` | Extract relevant tables and variables from the SQL database created in the pipeline. |
+| `esi_analysis.Rmd` | Script used to analyze results, including those in Supplementary Materials 2 |
+| `s1.Rmd` | Script used to create Figure S1 in Supplementary Materials|

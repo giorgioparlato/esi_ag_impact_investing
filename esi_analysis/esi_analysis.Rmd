@@ -1,0 +1,1335 @@
+---
+title: "ESI Analysis"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Setup
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(arrow)
+library(ggplot2)
+library(grid)
+library(scales)
+library(gt)
+library(patchwork)
+library(webshot2)
+library(ggrepel)
+
+# All exports are saved here; filenames will carry date_str as a suffix
+date_str   <- format(Sys.Date(), "%Y-%m-%d")
+export_dir <- file.path("final_exports", date_str)
+dir.create(file.path(export_dir, "appendix"), showWarnings = FALSE, recursive = TRUE)
+```
+
+```{r colors-and-labels, include=FALSE}
+
+impact_colors <- c(
+  "Land ESI"   = "#004D40",  
+  "Water ESI"  = "#1E88E5",  
+  "Albedo"     = "#FFC107",  
+  "Carbon ESI" = "#D81B60"   
+)
+
+ca_colors <- c(
+  "non-CA" = "#B8B8B8",
+  "CA"     = "#33C178"
+)
+
+cmt_ca_colors <- c(
+  "non-CA"    = "#E883A3",
+  "Dataset CA" = "#5E9567"
+)
+
+veg_colors <- c(
+  "Warm climate grassland" = "#FFA121",  
+  "Temperate forest"       = "#8781A8",  
+  "Tropical forest"        = "#0A471F"   
+)
+
+ghg_fluxes <- c(
+  "synth_input_prod_tco2eq",
+  "synth_input_tran_dist_tco2eq",
+  "synth_input_app_tco2eq",
+  "org_fert_app_tco2eq",
+  "maize_residues_returned_tco2eq",
+  "maize_grain_residues_burnt_tco2eq",
+  "soc_delta_tco2eq"
+)
+
+var_labels <- c(
+  residues_returned_perc_harvest = "Residues returned (% of harvest)",
+  surface_cover_perc_harvest     = "Surface cover residues (% of harvest)",
+  synth_fert_amount_kg_ha        = "Synthetic fertilizer (kg/ha)",
+  maize_grain_yield_t_ha         = "Maize grain yield (t/ha)",
+  net_income_mxn_ha              = "Net income (MXN/ha)",
+  water_cons_rep_m3_ha           = "Water consumption (m3/ha)",
+  org_fert_dry_amount_kg_ha      = "Organic fertilizer (kg/ha)",
+  pesticide_amount_kg_ha         = "Pesticide use (kg/ha)",
+  fuel_cons_tco2eq               = "Fuel consumption (t CO2eq)",
+  burned_perc_harvest            = "Burned residues (% of harvest)",
+  area_ha                        = "Farm area (ha)"
+)
+```
+
+```{r load-data, include=FALSE}
+raw <- arrow::read_feather(
+  "path/esi_df.feather" # file exported from extract_db.ipynb
+)
+
+df <- raw %>%
+  filter(
+    !is.na(esi_total),
+    maize_grain_yield_t_ha > 0,
+    !grepl("SUBTERRANEAN", water_sources),
+    !(is.na(water_cons_rep_m3_ha)) | (hydric_regime == "RAINFED" & is.na(water_sources))
+  ) %>%
+  mutate(
+    ca_status = as.factor(case_when(
+      surface_cover_perc_harvest > 60 & !(tillage %in% c("TRADITIONAL TILLAGE")) ~ "CA",
+      TRUE ~ "non-CA"
+    )),
+    ca_status_dummy = ifelse(ca_status == "CA", 1, 0),
+    total_esi_intensity_income = esi_total / (net_income_mxn_ha * area_ha),
+    total_esi_intensity_yield  = esi_total / maize_grain_yield_t,
+    veg_type = factor(
+      str_to_sentence(veg_type),
+      levels = c("Warm climate grassland", "Temperate forest", "Tropical forest")
+    )
+  ) %>%
+  mutate(
+    total_esi_intensity_ha     = esi_total / area_ha,
+    land_esi_intensity_ha           = esi_land / area_ha,
+    water_esi_intensity_ha          = esi_water / area_ha,
+    climate_esi_intensity_ha        = esi_climate / area_ha,
+    climate_albedo_esi_intensity_ha = esi_climate_albedo / area_ha
+  ) %>%
+  mutate(
+    hydric_regime = recode(hydric_regime, "IRRIGATION" = "Irrigated", "RAINFED" = "Rainfed"),
+    cmt_ca        = case_when(conservation_agriculture == 1 ~ "Dataset CA", TRUE ~ "non-CA")
+  )
+
+# rm(raw)
+
+```
+
+## Long-form ESI data
+
+```{r long-df, include=FALSE}
+long_df <- df %>%
+  pivot_longer(
+    cols = c(
+      esi_land, esi_climate, esi_water,
+      land_esi_intensity_ha, water_esi_intensity_ha, climate_esi_intensity_ha,
+      land_esi_intensity_revenue, water_esi_intensity_revenue, climate_esi_intensity_revenue,
+      esi_climate_albedo, climate_albedo_esi_intensity_revenue, climate_albedo_esi_intensity_ha
+    ),
+    names_to  = "variable",
+    values_to = "esi_value"
+  ) %>%
+  mutate(
+    metric_type = case_when(
+      str_detect(variable, "intensity_ha")      ~ "intensity_ha",
+      str_detect(variable, "intensity_revenue") ~ "intensity_revenue",
+      TRUE                                       ~ "absolute"
+    ),
+    impact_type = case_when(
+      str_detect(variable, "land")    ~ "Land ESI",
+      str_detect(variable, "albedo")  ~ "Albedo",
+      str_detect(variable, "water")   ~ "Water ESI",
+      str_detect(variable, "climate") ~ "Carbon ESI"
+    )
+  ) %>%
+  select(-variable)
+
+long_df_no_albedo <- df %>%
+  pivot_longer(
+    cols = c(
+      esi_land, esi_climate, esi_water,
+      land_esi_intensity_ha, water_esi_intensity_ha, climate_esi_intensity_ha,
+      land_esi_intensity_revenue, water_esi_intensity_revenue, climate_esi_intensity_revenue
+    ),
+    names_to  = "variable",
+    values_to = "esi_value"
+  ) %>%
+  mutate(
+    metric_type = case_when(
+      str_detect(variable, "intensity_ha")      ~ "intensity_ha",
+      str_detect(variable, "intensity_revenue") ~ "intensity_revenue",
+      TRUE                                       ~ "absolute"
+    ),
+    impact_type = case_when(
+      str_detect(variable, "land")    ~ "Land ESI",
+      str_detect(variable, "albedo")  ~ "Albedo",
+      str_detect(variable, "water")   ~ "Water ESI",
+      str_detect(variable, "climate") ~ "Carbon ESI"
+    )
+  ) %>%
+  select(-variable)
+```
+
+## values mentioned
+
+```{r summary-stats}
+summary(df$synth_fert_amount_kg_ha)
+summary(df$water_cons_rep_m3_ha)
+
+df %>%
+  group_by(water_sources) %>%
+  summarise(n = n())
+
+df %>%
+   summarise(avg_land_contribution = mean(esi_land / esi_total, na.rm = TRUE),
+             avg_water_contribution = mean(esi_water / esi_total, na.rm = TRUE),
+             avg_climate_contribution = mean(esi_climate / esi_total, na.rm = TRUE))
+
+# count for how many rows Land ESI is larger than water esi and carbon esi
+df %>%
+  summarise(
+    land_gt_water = sum(esi_land > esi_water & esi_land > esi_climate, na.rm = TRUE)/nrow(df)*100
+  )
+
+# calculate avg % contribution of water esi to total esi for irrigated plots in warm climate grassland
+df %>%
+  filter(hydric_regime == "Irrigated", veg_type == "Warm climate grassland") %>%
+  summarise(avg_water_contribution = mean(esi_water / esi_total, na.rm = TRUE),
+            max_water_contribution = max(esi_water / esi_total, na.rm = TRUE),
+            max_carbon_contribution = max(esi_climate / esi_total, na.rm = TRUE))
+
+df %>%
+  filter(hydric_regime == "Irrigated", veg_type == "Warm climate grassland") %>%
+  summarise(avg_land_contribution = mean(esi_land / esi_total, na.rm = TRUE),
+            avg_water_contribution = mean(esi_water / esi_total, na.rm = TRUE),
+            avg_carbon_contribution = mean(esi_climate / esi_total, na.rm = TRUE),
+            avg_albedo_contribution = mean(esi_climate_albedo / esi_total, na.rm = TRUE),
+            max_land_contribution = max(esi_land / esi_total, na.rm = TRUE),
+            max_water_contribution = max(esi_water / esi_total, na.rm = TRUE),
+            max_carbon_contribution = max(esi_climate / esi_total, na.rm = TRUE),
+            max_albedo_contribution = max(esi_climate_albedo / esi_total, na.rm = TRUE))
+
+df %>%
+  summarise(avg_land_contribution = mean(esi_land / (esi_total-esi_climate_albedo), na.rm = TRUE),
+            avg_water_contribution = mean(esi_water / (esi_total-esi_climate_albedo), na.rm = TRUE),
+            avg_carbon_contribution = mean(esi_climate / (esi_total-esi_climate_albedo), na.rm = TRUE),
+            max_land_contribution = max(esi_land / (esi_total-esi_climate_albedo), na.rm = TRUE),
+            max_water_contribution = max(esi_water / (esi_total-esi_climate_albedo), na.rm = TRUE),
+            max_carbon_contribution = max(esi_climate / (esi_total-esi_climate_albedo), na.rm = TRUE))
+
+
+# check the percentage of farms using subtarreanean water sources in each state
+raw %>%
+  filter(grepl("SUBTERRANEAN", water_sources)) %>%
+  group_by(state) %>%
+  summarise(
+    n_subterranean = sum(grepl("SUBTERRANEAN", water_sources)),
+    pct_subterranean = n_subterranean / 5614 * 100
+  ) 
+
+df %>%
+  group_by(flag_total_pct) %>%
+  summarise(n = n())
+
+df %>%
+  group_by(ca_status) %>%
+  summarise(n = n())
+
+
+df %>%
+  group_by(veg_type, ca_status) %>%
+  summarise(med_esi_ha = median(total_esi_intensity_ha, na.rm = TRUE)) %>%
+  mutate(perc_diff  = (med_esi_ha - lag(med_esi_ha)) / lag(med_esi_ha) * 100)
+
+
+
+```
+
+```{r ca-tillage}
+df %>%
+  group_by(og_tillage) %>%
+  summarise(n = n()) %>%
+  mutate(p = n/sum(n)*100)
+
+raw %>%
+  group_by(og_tillage) %>%
+  summarise(n = n()) %>%
+  mutate(p = n/sum(n)*100)
+```
+
+```{r}
+df %>%
+  filter(df$water_cons_rep_m3_ha > 0) %>%
+  group_by(veg_type) %>%
+  summarise(n = n())
+```
+
+```{r cmt-tillage}
+df %>%
+  count(cmt_ca, og_tillage) %>%
+  mutate(p = n / sum(n), .by = cmt_ca)
+
+raw %>%
+  count(conservation_agriculture, og_tillage) %>%
+  mutate(p = n *100 / sum(n), .by = conservation_agriculture)
+
+df %>%
+  group_by(cmt_ca, og_tillage) %>%
+  summarise(n = n())
+
+  
+```
+
+## Spearman correlations
+
+```{r spearman}
+df %>%
+  group_by(veg_type, ca_status) %>%
+  summarise(corr = cor(maize_grain_yield_t, total_esi_intensity_yield,
+                       method = "spearman", use = "complete.obs"))
+
+df %>%
+  group_by(veg_type, ca_status) %>%
+  summarise(corr = cor(area_ha, total_esi_intensity_area,
+                       method = "spearman", use = "complete.obs"))
+
+summary(df$total_esi_intensity_yield)
+summary(df$esi_total/df$maize_grain_yield_t)
+
+df %>%
+  summarise(corr = cor(area_ha, esi_total, method = "spearman", use = "complete.obs"))
+```
+
+# Paper figures
+
+## 3. ESI x Size
+
+```{r fig-2-esi-size}
+esi_size <- ggplot(df, aes(area_ha, esi_total)) +
+  geom_point(aes(color = veg_type)) +
+  scale_color_manual(values = veg_colors) +
+  labs(
+    x     = "Plot area (ha)", y = "Total ESI",
+    title = "Total ESI by plot size",
+    color = "Vegetation type"
+  ) +
+  theme_linedraw() +
+  theme(
+    plot.title            = element_blank(),
+    panel.background      = element_rect(fill = "transparent", colour = NA),
+    legend.background     = element_rect(fill = "transparent", colour = NA),
+    plot.background       = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA)
+  )
+
+esi_size
+
+#ggsave(file.path(export_dir, paste0("Figure_3.jpeg")),  esi_size, units = "in", width = 8, height = 5, dpi = "retina")
+```
+
+## 4. Boxplot — ESI by vegetation type and impact type
+
+```{r fig-3-boxplot-veg-impact}
+boxplot <- long_df %>%
+  filter(metric_type == "absolute") %>%
+  ggplot(aes(x = veg_type, y = esi_value, fill = impact_type, color = impact_type)) +
+  geom_boxplot(alpha = 0.3) +
+  geom_vline(xintercept = c(1.5, 2.5), linetype = "dashed", color = "grey85") +
+  coord_trans(y = scales::pseudo_log_trans(sigma = 0.001, base = 10)) +
+  scale_y_continuous(
+    breaks = seq(-0.02, 0.06, by = 0.02),
+    limits = c(-0.02, 0.06)
+  ) +
+  scale_fill_manual(values = impact_colors) +
+  scale_color_manual(values = impact_colors) +
+  labs(
+    y     = "ESI score by component",
+    title = "Distribution of ESI scores by components and vegetation types",
+    fill  = "ESI components",
+    color = "ESI components"
+  ) +
+  theme_linedraw() +
+  theme(
+    plot.title            = element_blank(),
+    axis.title.x          = element_blank(),
+    panel.background      = element_rect(fill = "transparent", colour = NA),
+    plot.background       = element_rect(fill = "transparent", colour = NA),
+    legend.background     = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA)
+  )
+
+boxplot
+
+#ggsave(file.path(export_dir, paste0("Figure_4.jpeg")), boxplot, units = "in", width = 8, height = 5, dpi = "retina")
+```
+
+## 5. Cumulative capture — emissions vs ESI
+
+```{r data-4-cum-capture}
+df_cum <- df %>%
+  filter(!is.na(net_ghg_emissions_tco2eq), !is.na(esi_total)) %>%
+  arrange(desc(net_ghg_emissions_tco2eq)) %>%
+  mutate(
+    frac_farms = row_number() / n(),
+    cum_ghg    = cumsum(pmax(net_ghg_emissions_tco2eq, 0)) /
+                   sum(pmax(net_ghg_emissions_tco2eq, 0)),
+    cum_esi    = cumsum(pmax(esi_total, 0)) /
+                   sum(pmax(esi_total, 0))
+  ) %>%
+  select(
+    frac_farms,
+    `GHG emissions captured` = cum_ghg,
+    `ESI impact captured`    = cum_esi
+  ) %>%
+  pivot_longer(-frac_farms, names_to = "Metric", values_to = "cum")
+
+ghg_color <- "#EE6677"
+esi_color <- "#014F0E"
+
+ghg_at_20 <- df_cum %>%
+  filter(Metric == "GHG emissions captured") %>%
+  slice(which.min(abs(frac_farms - 0.2))) %>%
+  pull(cum)
+
+esi_at_20 <- df_cum %>%
+  filter(Metric == "ESI impact captured") %>%
+  slice(which.min(abs(frac_farms - 0.2))) %>%
+  pull(cum)
+
+n_seq   <- sum(df$net_ghg_emissions_tco2eq < 0, na.rm = TRUE)
+n_tot   <- sum(!is.na(df$esi_total))
+pct_seq <- 100 * n_seq / n_tot
+
+note <- sprintf(
+  "Note: %.1f%% plots with net negative GHG emissions (sequestration) are included as contributing zero to cumulative emissions",
+  pct_seq
+)
+```
+
+```{r fig-4-cum-capture}
+cum_plot <- ggplot(df_cum, aes(x = frac_farms, y = cum, color = Metric)) +
+  annotate("segment", x = 0.2, xend = 0.2, y = 0, yend = max(ghg_at_20, esi_at_20),
+           linetype = "dashed", color = "grey70") +
+  annotate("segment", x = 0, xend = 0.2, y = ghg_at_20, yend = ghg_at_20,
+           linetype = "dashed", color = ghg_color) +
+  annotate("segment", x = 0, xend = 0.2, y = esi_at_20, yend = esi_at_20,
+           linetype = "dashed", color = esi_color) +
+  geom_line(linewidth = 1) +
+  annotate("text", x = 0.21, y = 0.02, hjust = 0, size = 3, color = "grey30",
+           label = "Top 20% emitters") +
+  annotate("text", x = 0.25, y = ghg_at_20, hjust = 0.1, size = 3, color = ghg_color,
+           label = sprintf("%.0f%% of cumulative emissions", ghg_at_20 * 100)) +
+  annotate("text", x = 0.25, y = esi_at_20, hjust = 0.1, size = 3, color = esi_color,
+           label = sprintf("%.0f%% of cumulative ESI", esi_at_20 * 100)) +
+  scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0.01, 0.02))) +
+  scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0.01, 0.02))) +
+  scale_color_manual(values = c(
+    "GHG emissions captured" = ghg_color,
+    "ESI impact captured"    = esi_color
+  )) +
+  labs(
+    x       = "Proportion of plots (ranked by GHG emissions, descending)",
+    y       = "Cumulative share",
+    title   = "Cumulative emissions vs. Cumulative ESI",
+    # caption = note,
+    color   = NULL
+  ) +
+  theme_linedraw() +
+  theme(
+    panel.background      = element_rect(fill = "transparent", colour = NA),
+    plot.background       = element_rect(fill = "transparent", colour = NA),
+    legend.background     = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA),
+    plot.caption          = element_text(hjust = 0, size = 8, color = "grey40",
+                                         margin = margin(t = 10)),
+    plot.caption.position = "plot",
+    plot.title            = element_blank()
+  )
+
+cum_plot
+
+#ggsave(file.path(export_dir, paste0("Figure_5.jpeg")), cum_plot, units = "in", width = 8, height = 5, dpi = "retina")
+```
+
+## 6. CA ESI/ha
+
+The code for comparing CA plots with non-CA also includes the option to compare plots based on the native CA variable from the dataset, which here is called `cmt_ca`
+
+### Yield quartiles
+
+```{r data-6-stratified, include=FALSE}
+stratified <- df %>%
+  group_by(veg_type) %>%
+  mutate(
+    yield_stratum = cut(
+      maize_grain_yield_t_ha,
+      breaks         = quantile(maize_grain_yield_t_ha, probs = seq(0, 1, length.out = 5), na.rm = TRUE),
+      include.lowest = TRUE,
+      labels         = FALSE
+    ),
+    stratum_mid = ave(maize_grain_yield_t_ha, yield_stratum, FUN = median)
+  ) %>%
+  ungroup() %>%
+  mutate(yield_stratum = factor(yield_stratum))
+
+```
+
+### Panel A - esi/ha and yield
+
+```{r fn-6-strat-plot-ha, include=FALSE}
+make_strat_plot_ha <- function(data, group_var, colors, group_label = group_var) {
+  plot_data <- data %>%
+    group_by(veg_type, yield_stratum, .data[[group_var]]) %>%
+    summarise(
+      n           = n(),
+      med_esi     = median(total_esi_intensity_ha),
+      yield_md    = median(maize_grain_yield_t_ha),
+      stratum_mid = median(stratum_mid),
+      lo          = min(total_esi_intensity_ha),
+      hi          = max(total_esi_intensity_ha),
+      q25         = quantile(total_esi_intensity_ha, .25),
+      q75         = quantile(total_esi_intensity_ha, .75),
+      yq25        = quantile(maize_grain_yield_t_ha, .25),
+      yq75        = quantile(maize_grain_yield_t_ha, .75),
+      .groups     = "drop"
+    ) %>%
+    mutate(lab_vjust = if_else(
+      veg_type == "Warm climate grassland" &
+        yield_stratum == "1" &
+        .data[[group_var]] == "non-CA",
+      -3,    # push this one label below its line
+      -1.8    # your original value for everything else
+    ))
+
+  ggplot(plot_data, aes(x = yield_md, y = med_esi,
+                         colour = .data[[group_var]], group = .data[[group_var]])) +
+    geom_line(linewidth = 0.6) +
+    geom_linerange(aes(ymin = q25, ymax = q75, linewidth = (yq75 - yq25)), alpha = 0.40) +
+    scale_colour_manual(values = colors) +
+    scale_linewidth_continuous(range = c(1, 6), guide = "none") +
+    geom_text(aes(label = n, vjust = lab_vjust,
+      colour = stage(.data[[group_var]],
+                     after_scale = colorspace::darken(colour, 0.4))),
+  size = 2.8, fontface = "bold", show.legend = FALSE
+) +
+    scale_x_continuous(expand = expansion(mult = 0.10)) +
+    facet_wrap(~ veg_type, scales = "free") +
+    labs(
+      x      = "Maize yield (t/ha) (median and IQR per yield quartile)",
+      y      = "Total ESI / ha (median & IQR)",
+      colour = group_label,
+      title  = paste("Distribution of ESI/ha by yield stratum and", group_label)
+    ) +
+    theme_linedraw() +
+    theme(
+      plot.title            = element_blank(),
+      panel.grid.minor      = element_blank(),
+      legend.position       = "none",
+      panel.background      = element_rect(fill = "transparent", colour = NA),
+      plot.background       = element_rect(fill = "transparent", colour = NA),
+      legend.background     = element_rect(fill = "transparent", colour = NA),
+      legend.box.background = element_rect(fill = "transparent", colour = NA)
+    )
+}
+```
+
+### panel B — ESI ECDF
+
+```{r colors-c3-ecdf, include=FALSE}
+
+combo_colors <- c(
+  "Warm climate grassland-CA"     = "#997700",  # dark yellow
+  "Warm climate grassland-non-CA" = "#EECC66",  # light yellow
+  "Temperate forest-CA"           = "#004488",  # dark blue
+  "Temperate forest-non-CA"       = "#6699CC",  # light blue
+  "Tropical forest-CA"            = "#994455",  # dark red
+  "Tropical forest-non-CA"        = "#EE99AA"   # light red
+)
+
+combo_colors <- c(
+  "Warm climate grassland-CA"     = "#B35F00",  # dark orange (derived)
+  "Warm climate grassland-non-CA" = "#FFA121",  # veg_colors
+  "Temperate forest-CA"           = "#554C85",  # dark purple (derived)
+  "Temperate forest-non-CA"       = "#8781A8",  # veg_colors
+  "Tropical forest-CA"            = "#0A471F",  # veg_colors
+  "Tropical forest-non-CA"        = "#6BB58A"   # light green (derived)
+)
+
+combo_cmt_colors <- c(
+  "Warm climate grassland-Dataset CA"     = "#997700",  # dark yellow
+  "Warm climate grassland-non-CA" = "#EECC66",  # light yellow
+  "Temperate forest-Dataset CA"           = "#004488",  # dark blue
+  "Temperate forest-non-CA"       = "#6699CC",  # light blue
+  "Tropical forest-Dataset CA"            = "#994455",  # dark red
+  "Tropical forest-non-CA"        = "#EE99AA"   # light red
+)
+
+```
+
+```{r fn-c3-ecdf-plot, include=FALSE}
+make_ecdf_plot <- function(data, group_var, colors, group_label = group_var) {
+  data <- data %>%
+    mutate(.combo = interaction(
+      factor(veg_type), factor(.data[[group_var]]),
+      sep = "-", drop = TRUE
+    ))
+
+  ggplot(data, aes(total_esi_intensity_ha, color = .combo)) +
+    stat_ecdf(geom = "step", linewidth = 0.7, pad = FALSE) +
+    scale_color_manual(values = colors, breaks = names(colors)) +
+    guides(colour = guide_legend(nrow = 2)) +
+    labs(
+      title  = "Cumulative distribution of ESI/ha",
+      x      = "Total ESI / ha",
+      y      = "Percentile per group",
+      colour = "Vegetation type and CA status"
+    ) +
+    theme_linedraw() +
+    theme(
+      plot.title      = element_blank(),
+      legend.position = "bottom"
+    )
+}
+```
+
+### put them together
+
+```{r fig-c3-ecdf}
+###### YIELD PLOTS
+p_strata_ha_ca  <- make_strat_plot_ha(stratified, "ca_status", ca_colors,     "Conservation Ag.")
+# p_strata_ha_cmt <- make_strat_plot_ha(stratified, "cmt_ca",    cmt_ca_colors, "Dataset Conservation Ag.")
+
+p_strata_ha_ca
+# p_strata_ha_cmt
+
+# #ggsave(file.path(export_dir, paste0("Figure_6.jpeg")),p_strata_ha_ca,  units = "in", width = 8, height = 5, dpi = "retina")
+# #ggsave(file.path(export_dir, "appendix", paste0("Figure_D1.jpeg")), p_strata_ha_cmt, units = "in", width = 8, height = 5, dpi = "retina")
+
+###### ECDF PLOTS
+ecdf_plot_ca     <- make_ecdf_plot(df, "ca_status", combo_colors,     "Conservation Ag.")
+# ecdf_plot_ca_cmt <- make_ecdf_plot(df, "cmt_ca",    combo_cmt_colors, "Dataset Conservation Ag.")
+
+ecdf_plot_ca
+# ecdf_plot_ca_cmt
+
+# #ggsave(file.path(export_dir, "appendix", paste0("Figure_C3.jpeg")), ecdf_plot_ca,     units = "in", width = 9, height = 6, dpi = "retina")
+# #ggsave(file.path(export_dir, "appendix", paste0("Figure_D4.jpeg")), ecdf_plot_ca_cmt, units = "in", width = 9, height = 6, dpi = "retina")
+
+###### TOGETHER
+sep <- ggplot() + geom_hline(yintercept = 0, linewidth = 0.5, colour = "grey40") + theme_void()
+
+fig_6 <- (p_strata_ha_ca / sep / ecdf_plot_ca) +
+  plot_layout(heights = c(1, 0.02, 1)) +
+  plot_annotation(tag_levels = list(c("(A)", "", "(B)")))
+ 
+#ggsave(file.path(export_dir, paste0("Figure_6.jpeg")), fig_6, units = "in", width = 9, height = 9, dpi = "retina")
+```
+
+## 7. State aggregate
+
+```{r data-7-state, include=FALSE}
+state_df <- df %>%
+  filter(year == 2021) %>%
+  group_by(state) %>%
+  summarise(
+    esi_land                 = sum(esi_land, na.rm = TRUE),
+    esi_water                = sum(esi_water, na.rm = TRUE),
+    esi_climate              = sum(esi_climate, na.rm = TRUE),
+    esi_albedo               = sum(esi_climate_albedo, na.rm = TRUE),
+    esi_total                = sum(esi_total, na.rm = TRUE),
+    esi_land_ha              = sum(esi_land) / sum(area_ha),
+    esi_water_ha             = sum(esi_water) / sum(area_ha),
+    esi_climate_ha           = sum(esi_climate) / sum(area_ha),
+    esi_albedo_ha            = sum(esi_albedo) / sum(area_ha),
+    esi_total_ha             = sum(esi_total) / sum(area_ha),
+    esi_land_yield           = sum(esi_land) / sum(maize_grain_yield_t),
+    esi_water_yield          = sum(esi_water) / sum(maize_grain_yield_t),
+    esi_climate_yield        = sum(esi_climate) / sum(maize_grain_yield_t),
+    esi_albedo_yield         = sum(esi_albedo) / sum(maize_grain_yield_t),
+    esi_total_yield          = sum(esi_total) / sum(maize_grain_yield_t),
+    avg_area                 = mean(area_ha, na.rm = TRUE),
+    area_ha                  = sum(area_ha, na.rm = TRUE),
+    net_ghg_emissions_tco2eq = sum(net_ghg_emissions_tco2eq, na.rm = TRUE),
+    esi_ha                   = sum(esi_total, na.rm = TRUE) / sum(area_ha, na.rm = TRUE),
+    yield_total_t            = sum(maize_grain_yield_t, na.rm = TRUE),
+    yield_ha                 = sum(maize_grain_yield_t, na.rm = TRUE) / sum(area_ha, na.rm = TRUE),
+    number                   = n()
+  ) %>%
+  filter(number > 10) %>%
+  arrange(desc(esi_total)) %>%
+  mutate(state = factor(state, levels = state))
+
+long_state <- state_df %>%
+  pivot_longer(cols = c(esi_land, esi_water, esi_climate, esi_albedo),
+               names_to = "variable", values_to = "esi_value") %>%
+  mutate(impact_type = case_when(
+    str_detect(variable, "land")    ~ "Land ESI",
+    str_detect(variable, "albedo")  ~ "Albedo",
+    str_detect(variable, "water")   ~ "Water ESI",
+    str_detect(variable, "climate") ~ "Carbon ESI"
+  )) %>%
+  arrange(desc(esi_total))
+
+sina_water <- state_df %>%
+  filter(state == "SINALOA")
+
+sina_water$esi_water/sum(state_df$esi_total)
+```
+
+### Total ESI by state
+
+```{r fig-7-state-sum}
+sf <- max(state_df$esi_total, na.rm = TRUE) / max(state_df$esi_total_yield, na.rm = TRUE)
+
+esi_state_sum <- ggplot(long_state, aes(x = state, y = esi_value, fill = impact_type), alpha = 0.8) +
+  geom_col(position = "stack") +
+  # geom_line(data = state_df,
+  #           aes(x = state, y = esi_total_yield * sf, group = 1),
+  #           inherit.aes = FALSE, colour = "grey20", linewidth = 0.8) +
+  geom_point(data = state_df,
+             aes(x = state, y = esi_total_yield * sf),
+             inherit.aes = FALSE, colour = "black", size = 2) +
+  geom_text(
+    data        = distinct(state_df, state, number),
+    aes(x = state, y = -0.04 * max(state_df$esi_total, na.rm = TRUE), label = number),
+    inherit.aes = FALSE, size = 3
+  ) +
+    scale_y_continuous(
+    name     = "Total ESI",
+    sec.axis = sec_axis(transform = ~ . / sf,
+                        name = expression("ESI intensity (ESI "*t^-1*" yield)"))
+  ) +
+  scale_fill_manual(values = impact_colors) +
+  labs(title = "Total ESI by State and Impact Type (2021)", x = "State", fill = "ESI components") +
+  theme_linedraw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title  = element_blank()
+  )
+
+esi_state_sum
+
+# ggsave(file.path(export_dir, paste0("Figure_7.jpeg")), esi_state_sum, units = "in", width = 9, height = 6, dpi = "retina")
+```
+
+# SM 2
+
+### flow diagram
+
+```{r}
+steps <- tibble(
+  group  = c(rep("Yield", 2), rep("Water", 2), rep("Emissions completeness", 6)),
+  reason = c("Not growing maize",
+            "No reported yield",
+             "Groundwater irrigation",
+             "Missing water use",
+             "Input amounts missing",
+             "Incomplete synthetic input application emissions",
+             "Incomplete synthetic input production emissions",
+             "Incomplete organic input emissions",
+            "Incomplete residue/harvest information",
+             "Incomplete SOC emissions"),
+  keep = rlang::exprs(
+    crops == "MAIZE",
+    maize_grain_yield_t_ha > 0,
+    !grepl("SUBTERRANEAN", water_sources),
+    !is.na(water_cons_rep_m3_ha) | (hydric_regime == "RAINFED" & is.na(water_sources)),
+    flag_imputed_amount             %in% c("NOT APPLICABLE", "REPORTED ONLY"),
+    flag_missing_emissions_syn_app  %in% c("NOT APPLICABLE | NOT MISSING", "NOT APPLICABLE", "NOT MISSING"),
+    flag_missing_emissions_syn_prod %in% c("NOT APPLICABLE | NOT MISSING", "NOT APPLICABLE", "NOT MISSING"),
+    flag_missing_emissions_org_app  %in% c("AVAILABLE | NOT APPLICABLE", "NOT APPLICABLE", "AVAILABLE"),
+    flag_residue_emissions          %in% c("AVAILABLE", "NOT APPLICABLE"),
+    flag_soc_emissions              %in% c("AVAILABLE"),
+  )
+)
+
+raw %>%
+  filter( crops == "MAIZE",
+          maize_grain_yield_t_ha > 0,
+    !grepl("SUBTERRANEAN", water_sources),
+    !is.na(water_cons_rep_m3_ha) | (hydric_regime == "RAINFED" & is.na(water_sources)),
+    flag_imputed_amount             %in% c("NOT APPLICABLE", "REPORTED ONLY"))
+
+group_label <- c("Yield"                  = "Maize with reported yield",
+                 "Water"                  = "Analysis sample after water filters",
+                 "Emissions completeness" = "ESI score sample")
+
+# 2. Sequential row counts: rows removed by each filter, given the previous ones
+counts <- accumulate(steps$keep, \(d, k) filter(d, !!k), .init = raw) |> map_int(nrow)
+
+steps <- steps |>
+  mutate(n_after  = tail(counts, -1),
+         excluded = head(counts, -1) - tail(counts, -1))
+
+groups <- steps |>
+  summarise(n_after = last(n_after), excluded = sum(excluded), n_bullets = n(), .by = group) |>
+  mutate(label = group_label[group],
+         h_exc = n_bullets + 2,          # title + bullets + padding (1 unit = 1 text line)
+         gap   = pmax(h_exc + 2, 5))     # vertical space between consecutive blue boxes
+
+# 3. Layout (y decreases downward)
+mh <- 3  # blue box height
+
+main <- tibble(label = c("Raw data", groups$label),
+               n_obs = c(nrow(raw), groups$n_after),
+               gap   = c(groups$gap, 0)) |>
+  mutate(ymax = -lag(cumsum(mh + gap), default = 0),
+         ymin = ymax - mh,
+         ymid = ymax - mh / 2,
+         fill = if_else(row_number() == n(), "#DFEEDF", "#E8EEF7"),
+         yend = lead(ymax))
+
+exc <- groups |>
+  mutate(ymid  = (head(main$ymin, -1) + tail(main$ymax, -1)) / 2,
+         ymax  = ymid + h_exc / 2,
+         ymin  = ymid - h_exc / 2,
+         title = str_glue("Excluded — {group}: n = {scales::comma(excluded)}"))
+
+bullets <- steps |>
+  left_join(select(exc, group, ymax), by = "group") |>
+  mutate(y    = ymax - 1 - row_number(),
+         text = str_glue("•  {reason}: {scales::comma(excluded)}"),
+         .by  = group)
+
+# 4. Plot
+x_main <- c(2, 38); x_exc <- c(46, 98); xc <- mean(x_main)
+y_min  <- min(main$ymin) - 1
+grey   <- "grey35"
+
+p <- ggplot() +
+  geom_rect(aes(xmin = x_main[1], xmax = x_main[2], ymin = ymin, ymax = ymax, fill = fill),
+            data = main, colour = grey) +
+  geom_rect(aes(xmin = x_exc[1], xmax = x_exc[2], ymin = ymin, ymax = ymax),
+            data = exc, fill = "#FBEEE4", colour = grey) +
+  geom_segment(aes(x = xc, xend = xc, y = ymin, yend = yend),
+               data = drop_na(main, yend), colour = grey, arrow = arrow(length = unit(2, "mm"))) +
+  geom_segment(aes(x = xc, xend = x_exc[1], y = ymid, yend = ymid),
+               data = exc, colour = grey, arrow = arrow(length = unit(2, "mm"))) +
+  geom_text(aes(x = xc, y = ymid + 0.5, label = label), data = main, fontface = "bold", size = 3.2) +
+  geom_text(aes(x = xc, y = ymid - 0.6, label = paste0("n = ", scales::comma(n_obs))),
+            data = main, size = 3.2) +
+  geom_text(aes(x = x_exc[1] + 1, y = ymax - 1, label = title),
+            data = exc, hjust = 0, fontface = "bold", size = 3) +
+  geom_text(aes(x = x_exc[1] + 1, y = y, label = text), data = bullets, hjust = 0, size = 3) +
+  scale_fill_identity() +
+  coord_cartesian(xlim = c(0, 100), ylim = c(y_min, 1), expand = FALSE) +
+  theme_void()
+
+p
+
+# ggsave(file.path(export_dir, "appendix", paste0("Figure_B1.jpeg")), p, units = "in", width = 8, height = 5, dpi = "retina")
+```
+
+# SM 3
+
+## S3.1. Share of total ESI for carbon and water
+
+```{r}
+df %>%
+  filter(esi_climate > 0) %>%
+ggplot(aes(esi_climate/esi_total, esi_water/esi_total, color = veg_type)) +
+  scale_color_manual(values = veg_colors) +
+  geom_point() +
+labs(
+  x = "Share of total ESI from Carbon ESI",
+  y = "Share of total ESI from Water ESI",
+  color = "Vegetation type"
+) +
+  theme_linedraw() +
+  theme(
+    plot.title            = element_blank(),
+    panel.background      = element_rect(fill = "transparent", colour = NA),
+    plot.background       = element_rect(fill = "transparent", colour = NA),
+    legend.background     = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA)
+  )
+
+#ggsave(file.path(export_dir, "appendix", paste0("Figure_C1.jpeg")), units = "in", width = 8, height = 5, dpi = "retina")
+
+```
+
+## TS3.1 
+
+```{r fn-tc1-strat-table, include=FALSE}
+make_strat_table <- function(plot_data, group_var, lvl1, lvl2, group_label = group_var) {
+  n_l1     <- paste0("n_", lvl1)
+  n_l2     <- paste0("n_", lvl2)
+  esi_l1   <- paste0("med_esi_", lvl1)
+  esi_l2   <- paste0("med_esi_", lvl2)
+  yield_l1 <- paste0("yield_md_", lvl1)
+  yield_l2 <- paste0("yield_md_", lvl2)
+
+  plot_data_f <- plot_data %>%
+    group_by(veg_type, yield_stratum, .data[[group_var]]) %>%
+    summarise(
+      n           = n(),
+      med_esi     = median(total_esi_intensity_ha),
+      yield_md    = median(maize_grain_yield_t_ha),
+      stratum_mid = median(stratum_mid),
+      lo          = min(total_esi_intensity_ha),
+      hi          = max(total_esi_intensity_ha),
+      q25         = quantile(total_esi_intensity_ha, .25),
+      q75         = quantile(total_esi_intensity_ha, .75),
+      yq25        = quantile(maize_grain_yield_t_ha, .25),
+      yq75        = quantile(maize_grain_yield_t_ha, .75),
+      .groups     = "drop"
+    )
+
+  tbl_data <- plot_data_f %>%
+    select(veg_type, n, yield_stratum, all_of(group_var), med_esi, yield_md) %>%
+    pivot_wider(names_from = all_of(group_var), values_from = c(n, med_esi, yield_md)) %>%
+    mutate(esi_pct_change = (.data[[esi_l1]] - .data[[esi_l2]]) / .data[[esi_l2]] * 100) %>%
+    select(all_of(c(
+      "veg_type", "yield_stratum",
+      n_l2, n_l1, yield_l2, yield_l1, esi_l2, esi_l1, "esi_pct_change"
+    ))) %>%
+    arrange(veg_type, yield_stratum)
+
+  tbl_data %>%
+    gt(groupname_col = "veg_type") %>%
+    tab_header(
+      title    = md(paste0("**Maize yield and ESI/ha: ", lvl1, " vs ", lvl2, "**")),
+      subtitle = "Medians per yield stratum (quartiles)"
+    ) %>%
+    tab_spanner(label = paste("Observations by", group_label), columns = starts_with("n_")) %>%
+    tab_spanner(label = "Maize yield t/ha (median)", columns = starts_with("yield_md_")) %>%
+    tab_spanner(label = "ESI / ha (median)", columns = c(starts_with("med_esi_"), esi_pct_change)) %>%
+    tab_style(
+      style     = cell_borders(sides = c("left", "right"), color = "#E0E0E0", weight = px(1)),
+      locations = cells_body(columns = c(starts_with("yield_md_"), starts_with("med_esi_"), esi_pct_change))
+    ) %>%
+    cols_label(
+      yield_stratum  = "Stratum",
+      esi_pct_change = "% Δ",
+      !!!setNames(list(lvl2, lvl1, lvl2, lvl1, lvl2, lvl1),
+                  c(n_l2, n_l1, yield_l2, yield_l1, esi_l2, esi_l1))
+    ) %>%
+    fmt_scientific(columns = starts_with("med_esi_"), decimals = 3) %>%
+    fmt_number(columns = starts_with("yield_md_"), decimals = 2) %>%
+    fmt_number(columns = esi_pct_change, decimals = 1, force_sign = TRUE, pattern = "{x}%") %>%
+    sub_missing(missing_text = "—") %>%
+    tab_options(
+      row_group.font.weight     = "bold",
+      heading.background.color  = "#2E8B57",
+      column_labels.font.weight = "bold",
+      table.width               = pct(100),
+      data_row.padding          = px(8),
+      column_labels.padding     = px(8),
+      table.font.size           = px(15)
+    )
+}
+```
+
+```{r tbl-tc1-strat}
+strat_table_ca  <- make_strat_table(stratified, "ca_status", "CA",        "non-CA", "Conservation Ag.")
+# strat_table_cmt <- make_strat_table(stratified, "cmt_ca",    "Dataset CA", "non-CA", "Dataset CA")
+
+strat_table_ca
+# strat_table_cmt
+
+#gtsave(strat_table_ca,  file.path(export_dir, "appendix", paste0("Table_C2_strat_table_ca_",  date_str, ".docx")))
+
+# gtsave(strat_table_cmt, file.path(export_dir, "appendix", paste0("Table_C2_strat_table_cmt_", date_str, ".docx")))
+```
+
+## TS3.2
+
+```{r fn-tc1-strat-table, include=FALSE}
+make_strat_table <- function(plot_data, group_var, lvl1, lvl2, group_label = group_var) {
+  n_l1     <- paste0("n_", lvl1)
+  n_l2     <- paste0("n_", lvl2)
+  esi_l1   <- paste0("med_esi_", lvl1)
+  esi_l2   <- paste0("med_esi_", lvl2)
+  yield_l1 <- paste0("yield_md_", lvl1)
+  yield_l2 <- paste0("yield_md_", lvl2)
+
+  plot_data_f <- plot_data %>%
+    group_by(veg_type, yield_stratum, .data[[group_var]]) %>%
+    summarise(
+      n           = n(),
+      med_esi     = median(total_esi_intensity_yield),
+      yield_md    = median(maize_grain_yield_t_ha),
+      stratum_mid = median(stratum_mid),
+      lo          = min(total_esi_intensity_yield),
+      hi          = max(total_esi_intensity_yield),
+      q25         = quantile(total_esi_intensity_yield, .25),
+      q75         = quantile(total_esi_intensity_yield, .75),
+      yq25        = quantile(maize_grain_yield_t_ha, .25),
+      yq75        = quantile(maize_grain_yield_t_ha, .75),
+      .groups     = "drop"
+    )
+
+  tbl_data <- plot_data_f %>%
+    select(veg_type, n, yield_stratum, all_of(group_var), med_esi, yield_md) %>%
+    pivot_wider(names_from = all_of(group_var), values_from = c(n, med_esi, yield_md)) %>%
+    mutate(esi_pct_change = (.data[[esi_l1]] - .data[[esi_l2]]) / .data[[esi_l2]] * 100) %>%
+    select(all_of(c(
+      "veg_type", "yield_stratum",
+      n_l2, n_l1, yield_l2, yield_l1, esi_l2, esi_l1, "esi_pct_change"
+    ))) %>%
+    arrange(veg_type, yield_stratum)
+
+  tbl_data %>%
+    gt(groupname_col = "veg_type") %>%
+    tab_header(
+      title    = md(paste0("**Maize yield and ESI/ha: ", lvl1, " vs ", lvl2, "**")),
+      subtitle = "Medians per yield stratum (quartiles)"
+    ) %>%
+    tab_spanner(label = paste("Observations by", group_label), columns = starts_with("n_")) %>%
+    tab_spanner(label = "Maize yield t/ha (median)", columns = starts_with("yield_md_")) %>%
+    tab_spanner(label = "ESI / yield (median)", columns = c(starts_with("med_esi_"), esi_pct_change)) %>%
+    tab_style(
+      style     = cell_borders(sides = c("left", "right"), color = "#E0E0E0", weight = px(1)),
+      locations = cells_body(columns = c(starts_with("yield_md_"), starts_with("med_esi_"), esi_pct_change))
+    ) %>%
+    cols_label(
+      yield_stratum  = "Stratum",
+      esi_pct_change = "% Δ",
+      !!!setNames(list(lvl2, lvl1, lvl2, lvl1, lvl2, lvl1),
+                  c(n_l2, n_l1, yield_l2, yield_l1, esi_l2, esi_l1))
+    ) %>%
+    fmt_scientific(columns = starts_with("med_esi_"), decimals = 3) %>%
+    fmt_number(columns = starts_with("yield_md_"), decimals = 2) %>%
+    fmt_number(columns = esi_pct_change, decimals = 1, force_sign = TRUE, pattern = "{x}%") %>%
+    sub_missing(missing_text = "—") %>%
+    tab_options(
+      row_group.font.weight     = "bold",
+      heading.background.color  = "#2E8B57",
+      column_labels.font.weight = "bold",
+      table.width               = pct(100),
+      data_row.padding          = px(8),
+      column_labels.padding     = px(8),
+      table.font.size           = px(15)
+    )
+}
+```
+
+```{r tbl-tc1-strat}
+strat_table_ca  <- make_strat_table(stratified, "ca_status", "CA",        "non-CA", "Conservation Ag.")
+# strat_table_cmt <- make_strat_table(stratified, "cmt_ca",    "Dataset CA", "non-CA", "Dataset CA")
+
+strat_table_ca
+# strat_table_cmt
+
+#gtsave(strat_table_ca,  file.path(export_dir, "appendix", paste0("Table_C2_strat_table_ca_",  date_str, ".docx")))
+
+# gtsave(strat_table_cmt, file.path(export_dir, "appendix", paste0("Table_C2_strat_table_cmt_", date_str, ".docx")))
+
+
+```
+
+## TS3.3 — ESI/ha and ESI/yield by state
+
+```{r data-tc2-state-long, include=FALSE}
+long_state_ha <- state_df %>%
+  pivot_longer(
+    cols      = c(esi_albedo_ha, esi_climate_ha, esi_land_ha, esi_water_ha),
+    names_to  = "variable",
+    values_to = "esi_value"
+  ) %>%
+  mutate(impact_type = case_when(
+    str_detect(variable, "land")    ~ "Land ESI",
+    str_detect(variable, "albedo")  ~ "Albedo",
+    str_detect(variable, "water")   ~ "Water ESI",
+    str_detect(variable, "climate") ~ "Carbon ESI"
+  ))
+
+long_state_yield <- state_df %>%
+  pivot_longer(
+    cols      = c(esi_albedo_yield, esi_climate_yield, esi_land_yield, esi_water_yield),
+    names_to  = "variable",
+    values_to = "esi_value"
+  ) %>%
+  mutate(impact_type = case_when(
+    str_detect(variable, "land")    ~ "Land ESI",
+    str_detect(variable, "albedo")  ~ "Albedo",
+    str_detect(variable, "water")   ~ "Water ESI",
+    str_detect(variable, "climate") ~ "Carbon ESI"
+  ))
+```
+
+### Per hectare
+
+```{r tbl-tc2-state-avg}
+state_avg_table_data <- state_df %>%
+  mutate(
+    esi_total_ha   = esi_total / area_ha,
+    esi_land_ha    = esi_land / area_ha,
+    esi_water_ha   = esi_water / area_ha,
+    esi_climate_ha = esi_climate / area_ha,
+    esi_albedo_ha  = esi_albedo / area_ha,
+    avg_area       = area_ha / number
+  ) %>%
+  select(state, number, avg_area, esi_total_ha, esi_land_ha, esi_water_ha, esi_climate_ha, esi_albedo_ha)
+
+esi_state_avg_table <- state_avg_table_data %>%
+  gt() %>%
+  fmt_number(columns = avg_area, decimals = 1) %>%
+  fmt_scientific(
+    columns  = c(esi_total_ha, esi_land_ha, esi_water_ha, esi_climate_ha, esi_albedo_ha),
+    decimals = 2
+  ) %>%
+  cols_label(
+    state          = "State",
+    number         = "n",
+    avg_area       = "Average plot area (ha)",
+    esi_total_ha   = "Total ESI/ha",
+    esi_land_ha    = "Land ESI/ha",
+    esi_water_ha   = "Water ESI/ha",
+    esi_climate_ha = "Carbon ESI/ha",
+    esi_albedo_ha  = "Albedo ESI/ha"
+  ) %>%
+  tab_style(
+    style     = cell_borders(sides = "left", color = "grey80", weight = px(1)),
+    locations = list(cells_column_labels(columns = -state), cells_body(columns = -state))
+  ) %>%
+  tab_style(
+    style     = list(cell_text(weight = "bold"),
+                     cell_borders(sides = "right", color = "grey50", weight = px(1.5))),
+    locations = list(cells_body(columns = state), cells_column_labels(columns = state))
+  ) %>%
+  tab_style(
+    style     = cell_borders(sides = "bottom", color = "grey90", weight = px(0.5)),
+    locations = cells_body(columns = everything())
+  ) %>%
+  tab_style(
+    style     = list(cell_fill(color = impact_colors[["Land ESI"]]),
+                     cell_text(color = "white", weight = "bold"),
+                     cell_borders(sides = "all", color = "white", weight = px(1))),
+    locations = cells_column_labels(columns = esi_land_ha)
+  ) %>%
+  tab_style(
+    style     = list(cell_fill(color = impact_colors[["Water ESI"]]),
+                     cell_text(color = "white", weight = "bold"),
+                     cell_borders(sides = "all", color = "white", weight = px(1))),
+    locations = cells_column_labels(columns = esi_water_ha)
+  ) %>%
+  tab_style(
+    style     = list(cell_fill(color = impact_colors[["Carbon ESI"]]),
+                     cell_text(color = "white", weight = "bold"),
+                     cell_borders(sides = "all", color = "white", weight = px(1))),
+    locations = cells_column_labels(columns = esi_climate_ha)
+  ) %>%
+  tab_style(
+    style     = list(cell_fill(color = impact_colors[["Albedo"]]),
+                     cell_text(color = "black", weight = "bold"),
+                     cell_borders(sides = "all", color = "white", weight = px(1))),
+    locations = cells_column_labels(columns = esi_albedo_ha)
+  ) %>%
+  tab_options(
+    table.font.size                   = 12,
+    table.width               = pct(100),
+    data_row.padding                  = px(6),
+    column_labels.padding             = px(6),
+    heading.border.bottom.width       = px(0),
+    column_labels.border.bottom.width = px(0)
+  ) %>%
+  tab_source_note(source_note = "ESI per hectare = total ESI / total area across all plots in state (2021)")
+
+esi_state_avg_table
+
+table_ha_panel <- wrap_table(esi_state_avg_table, space = "fixed") +
+  labs(title = "Avg ESI/ha (weighted) by state (2021)") +
+  theme(plot.title = element_text(face = "bold", size = 11))
+
+#gtsave(esi_state_avg_table, file.path(export_dir, "appendix", paste0("Table_C3_state_avg_ha_", date_str, ".docx")))
+```
+
+## S3.2 — Practice boxplots
+
+```{r fn-c1-box-plot, include=FALSE}
+make_box_plot <- function(data, group_var, colors, group_label = group_var) {
+  plot_df <- data %>%
+    select(
+      .data[[group_var]], area_ha,
+      residues_returned_perc_harvest, synth_fert_amount_kg_ha,
+      maize_grain_yield_t_ha, net_income_mxn_ha,
+      burned_perc_harvest, pesticide_amount_kg_ha,
+      org_fert_dry_amount_kg_ha, water_cons_rep_m3_ha
+    ) %>%
+    filter(!is.na(maize_grain_yield_t_ha)) %>%
+    pivot_longer(-.data[[group_var]], names_to = "variable", values_to = "value")
+
+  ann_df <- plot_df %>%
+    group_by(variable) %>%
+    summarise(
+      n_obs  = sum(!is.na(value)),
+      n_miss = sum(is.na(value)),
+      pct_ca = mean(.data[[group_var]] != "non-CA" & !is.na(value)) /
+               mean(!is.na(value)) * 100,
+      .groups = "drop"
+    ) %>%
+    mutate(label = sprintf("n = %d \n%.1f%% CA", n_obs, pct_ca))
+
+  ggplot(plot_df, aes(y = value, color = .data[[group_var]], fill = .data[[group_var]])) +
+    geom_boxplot(alpha = 0.25, linewidth = 0.6) +
+    geom_text(
+      data        = ann_df,
+      aes(x = Inf, y = Inf, label = label),
+      inherit.aes = FALSE,
+      hjust = 1.05, vjust = 1.15, size = 2.8, lineheight = 0.95
+    ) +
+    facet_wrap(~ variable, scales = "free", labeller = labeller(variable = var_labels)) +
+    scale_color_manual(values = colors) +
+    scale_fill_manual(values  = colors) +
+    labs(
+      x     = NULL,
+      color = "CA status", fill = "CA status",
+      title = "Distribution of key practices and outcomes, by CA status"
+    ) +
+    theme_linedraw() +
+    theme(
+      axis.ticks.x          = element_blank(),
+      axis.text.x           = element_blank(),
+      axis.title.y          = element_blank(),
+      strip.text            = element_text(face = "bold"),
+      plot.title            = element_blank(),
+      legend.position = "none",
+      plot.background       = element_rect(fill = "transparent", colour = NA),
+      legend.background     = element_rect(fill = "transparent", colour = NA),
+      legend.box.background = element_rect(fill = "transparent", colour = NA),
+      panel.background      = element_rect(fill = "transparent", colour = NA)
+    )
+}
+```
+
+```{r fig-c1-practice-boxplot}
+box_plot_ca     <- make_box_plot(df, "ca_status", ca_colors,     "Conservation Ag.")
+# box_plot_ca_cmt <- make_box_plot(df, "cmt_ca",    cmt_ca_colors, "Dataset Conservation Ag.")
+
+box_plot_ca
+# box_plot_ca_cmt
+
+#ggsave(file.path(export_dir, "appendix", paste0("Figure_C1.jpeg")), box_plot_ca,     units = "in", width = 8, height = 5, dpi = "retina")
+# #ggsave(file.path(export_dir, "appendix", paste0("Figure_D2.jpeg.jpeg")), box_plot_ca_cmt, units = "in", width = 8, height = 5, dpi = "retina")
+```
+
+## S3.3 — GHG Fluxes
+
+```{r data-c2-ghg-long, include=FALSE}
+ghg_fluxes <- c(
+  "synth_input_prod_tco2eq",
+  "synth_input_tran_dist_tco2eq",
+  "synth_input_app_tco2eq",
+  "org_fert_app_tco2eq",
+  "maize_residues_returned_tco2eq",
+  "maize_grain_residues_burnt_tco2eq",
+  "soc_delta_tco2eq"
+)
+
+ghg <- df %>%
+  mutate(across(all_of(ghg_fluxes), ~ . / area_ha))
+
+ghg_long <- ghg %>%
+  pivot_longer(cols = all_of(ghg_fluxes), names_to = "emission_type", values_to = "emission_value") %>%
+  mutate(emission_type = recode(emission_type,
+    "synth_input_prod_tco2eq"           = "Synthetic input production",
+    "synth_input_tran_dist_tco2eq"      = "Synthetic input transport",
+    "synth_input_app_tco2eq"            = "Synthetic input application",
+    "org_fert_app_tco2eq"               = "Organic fertilizer application",
+    "maize_residues_returned_tco2eq"    = "Maize residues returned",
+    "maize_grain_residues_burnt_tco2eq" = "Maize residues burnt",
+    "soc_delta_tco2eq"                  = "Soil organic carbon change"
+  ))
+```
+
+```{r fn-c2-ghg-boxplot, include=FALSE}
+make_ghg_box_plot <- function(data, group_var, colors, group_label = group_var) {
+  ggplot(data, aes(x = .data[[group_var]], y = emission_value,
+                   color = .data[[group_var]], fill = .data[[group_var]])) +
+    geom_boxplot(alpha = 0.4) +
+    facet_wrap(~ emission_type, scales = "free_y") +
+    scale_color_manual(values = colors) +
+    scale_fill_manual(values  = colors) +
+    labs(
+      title = "CO2 emissions by emission sources",
+      y     = "tCO2 eq/ha",
+      color = "CA status",
+      fill  = "CA status"
+    ) +
+    theme_linedraw() +
+    theme(
+      plot.title   = element_blank(),
+      legend.position = "none",
+        axis.ticks.x          = element_blank(),
+      axis.text.x           = element_blank(),
+      axis.title.x = element_blank()
+    )
+}
+```
+
+```{r fig-c2-ghg-boxplot}
+ghg_box_plot_ca     <- make_ghg_box_plot(ghg_long, "ca_status", ca_colors,     "Conservation Ag.")
+# ghg_box_plot_ca_cmt <- make_ghg_box_plot(ghg_long, "cmt_ca",    cmt_ca_colors, "Dataset Conservation Ag.")
+
+ghg_box_plot_ca
+# ghg_box_plot_ca_cmt
+
+#ggsave(file.path(export_dir, "appendix", paste0("Figure_C2.jpeg")), ghg_box_plot_ca,     units = "in", width = 8, height = 5, dpi = "retina")
+# #ggsave(file.path(export_dir, "appendix", paste0("Figure_D3_cmt.jpeg")), ghg_box_plot_ca_cmt, units = "in", width = 8, height = 5, dpi = "retina")
+```
+
+## S3.4 — CA ESI/yield
+
+```{r fn-c4-strat-plot-yield, include=FALSE}
+make_strat_plot_yield <- function(data, group_var, colors, group_label = group_var) {
+  plot_data <- data %>%
+    group_by(veg_type, yield_stratum, .data[[group_var]]) %>%
+    summarise(
+      n           = n(),
+      med_esi     = median(total_esi_intensity_yield),
+      yield_md    = median(maize_grain_yield_t_ha),
+      stratum_mid = median(stratum_mid),
+      lo          = min(total_esi_intensity_yield),
+      hi          = max(total_esi_intensity_yield),
+      q25         = quantile(total_esi_intensity_yield, .25),
+      q75         = quantile(total_esi_intensity_yield, .75),
+      yq25        = quantile(maize_grain_yield_t_ha, .25),
+      yq75        = quantile(maize_grain_yield_t_ha, .75),
+      .groups     = "drop"
+    ) %>%
+    group_by(veg_type, yield_stratum) %>%
+    mutate(lab_vjust = if_else(.data[[group_var]] == "CA", 2, -2)) %>%
+    ungroup()
+
+  ggplot(plot_data, aes(x = yield_md, y = med_esi,
+                         colour = .data[[group_var]], group = .data[[group_var]])) +
+    geom_line(linewidth = 0.6) +
+    geom_linerange(aes(ymin = q25, ymax = q75, linewidth = (yq75 - yq25)), alpha = 0.40) +
+    scale_colour_manual(values = colors) +
+    scale_linewidth_continuous(range = c(1, 6), guide = "none") +
+    geom_text(aes(label = n, vjust = lab_vjust,
+      colour = stage(.data[[group_var]],
+                     after_scale = colorspace::darken(colour, 0.4))),
+  size = 2.8, fontface = "bold", show.legend = FALSE
+) +
+    scale_x_continuous(expand = expansion(mult = 0.10)) +
+    facet_wrap(~ veg_type, scales = "free") +
+    labs(
+      x      = "Maize yield (t/ha) (median and IQR per yield quartile)",
+      y      = "Total ESI / yield (median & IQR)",
+      colour = group_label,
+      title  = paste("Distribution of ESI/yield by yield stratum and", group_label)
+    ) +
+    theme_linedraw() +
+    theme(
+      plot.title            = element_blank(),
+      panel.grid.minor      = element_blank(),
+      legend.position       = "none",
+      panel.background      = element_rect(fill = "transparent", colour = NA),
+      plot.background       = element_rect(fill = "transparent", colour = NA),
+      legend.background     = element_rect(fill = "transparent", colour = NA),
+      legend.box.background = element_rect(fill = "transparent", colour = NA)
+    )
+}
+```
+
+```{r fig-c4-strata-yield}
+p_strata_yield_ca  <- make_strat_plot_yield(stratified, "ca_status", ca_colors,     "Conservation Ag.")
+# p_strata_yield_cmt <- make_strat_plot_yield(stratified, "cmt_ca",    cmt_ca_colors, "Dataset Conservation Ag.")
+
+p_strata_yield_ca
+# p_strata_yield_cmt
+
+#ggsave(file.path(export_dir, "appendix", paste0("Figure_C4.jpeg")), p_strata_yield_ca,  units = "in", width = 8, height = 5, dpi = "retina")
+# #ggsave(file.path(export_dir, "appendix", paste0("Figure_D5.jpeg")), p_strata_yield_cmt, units = "in", width = 8, height = 5, dpi = "retina")
+```

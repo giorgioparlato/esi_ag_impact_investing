@@ -1,0 +1,43 @@
+﻿Dominant PFT ,Continent ,luc_metric_scaled,ro_metric_scaled,cc_metric_rate_scaled
+boreal,Asia,4.10E-02,5.67E-06,6.24E-05
+grass_c3,Asia,7.52E-03,3.36E-06,6.24E-05
+grass_c4,Asia,3.39E-02,5.14E-05,6.24E-05
+temperate,Asia,5.50E-02,0.00E+00,6.24E-05
+tropical,Asia,6.42E-02,4.87E-07,6.24E-05
+barren,Asia,8.18E-03,3.58E-04,6.24E-05
+boreal,North America,4.33E-02,4.08E-06,6.24E-05
+grass_c3,North America,1.73E-02,2.45E-05,6.24E-05
+grass_c4,North America,6.56E-02,4.41E-05,6.24E-05
+temperate,North America,7.10E-02,0.00E+00,6.24E-05
+tropical,North America,1.99E-01,3.75E-06,6.24E-05
+barren,North America,6.26E-03,0.00E+00,6.24E-05
+boreal,Europe,7.26E-02,1.67E-05,6.24E-05
+grass_c3,Europe,6.92E-02,7.09E-05,6.24E-05
+grass_c4,Europe,,,6.24E-05
+temperate,Europe,7.56E-02,3.59E-05,6.24E-05
+tropical,Europe,,,6.24E-05
+barren,Europe,1.16E-01,5.11E-05,6.24E-05
+boreal,Africa,,,6.24E-05
+grass_c3,Africa,5.13E-01,3.25E-02,6.24E-05
+grass_c4,Africa,9.83E-03,4.42E-05,6.24E-05
+temperate,Africa,1.12E-01,0.00E+00,6.24E-05
+tropical,Africa,3.41E-02,2.65E-06,6.24E-05
+barren,Africa,8.44E-03,2.59E-03,6.24E-05
+boreal,South America,,,6.24E-05
+grass_c3,South America,1.20E-01,4.88E-04,6.24E-05
+grass_c4,South America,6.79E-02,1.00E-03,6.24E-05
+temperate,South America,7.83E-02,2.50E-05,6.24E-05
+tropical,South America,3.96E-02,3.55E-06,6.24E-05
+barren,South America,7.37E-02,1.91E-04,6.24E-05
+boreal,Oceania,,,6.24E-05
+grass_c3,Oceania,,,6.24E-05
+grass_c4,Oceania,,,6.24E-05
+temperate,Oceania,0.354294307,4.65488E-05,6.24E-05
+tropical,Oceania,0.11028322,1.57139E-05,6.24E-05
+barren,Oceania,,,6.24E-05
+boreal,Australia,,,6.24E-05
+grass_c3,Australia,,,6.24E-05
+grass_c4,Australia,0.016927204,0.000231998,6.24E-05
+temperate,Australia,0.156107286,0.000463394,6.24E-05
+tropical,Australia,0,0.000198536,6.24E-05
+barren,Australia,0.063074776,0.006356759,6.24E-05
